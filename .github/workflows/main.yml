@@ -1,0 +1,41 @@
+name: Build and deploy CloudSQL-migrator
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+on:
+  push:
+    paths-ignore:
+      - '*.md'
+
+env:
+  GOOGLE_REGISTRY: "europe-north1-docker.pkg.dev"
+
+jobs:
+  build:
+    name: Build and push
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4 # ratchet:actions/checkout@v3
+      - name: Install cosign
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # ratchet:sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v2.2.3'
+      - name: Verify runner image
+        run: cosign verify --certificate-identity keyless@distroless.iam.gserviceaccount.com --certificate-oidc-issuer https://accounts.google.com gcr.io/distroless/static-debian11
+      - uses: nais/platform-build-push-sign@main # ratchet:exclude
+        id: build-push-sign
+        with:
+          name: cloudsql-migrator
+          google_service_account: gh-cloudsql-migrator
+          push: ${{ github.actor != 'dependabot[bot]' }}
+          workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
+          multi-platform: true
+          cache_from: type=gha
+          cache_to: type=gha,mode=max
+    outputs:
+      version: "${{ steps.build-push-sign.outputs.version }}"

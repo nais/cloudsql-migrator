@@ -1,0 +1,27 @@
+.idea
+.idea_modules
+*.iml
+*.iws
+out
+bin
+gen
+*~
+._*
+.Apple*
+.DS_Store
+.fuse_hidden
+Network Trash Folder
+.nfs*
+.TemporaryItems
+Temporary Items
+.Trash-*
+.Trashes
+.VolumeIcon.icns
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
