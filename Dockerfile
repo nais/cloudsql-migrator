@@ -25,12 +25,10 @@ COPY . /workspace
 RUN make test
 
 # Build
-RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o setup cmd/setup/main.go
-RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o promote cmd/promote/main.go
-RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o cleanup cmd/cleanup/main.go
+RUN CGO_ENABLED=0 make all
 
 FROM gcr.io/distroless/static-debian11
 WORKDIR /
-COPY --from=builder /workspace/setup /setup
-COPY --from=builder /workspace/promote /promote
-COPY --from=builder /workspace/cleanup /cleanup
+COPY --from=builder /workspace/bin/setup /setup
+COPY --from=builder /workspace/bin/promote /promote
+COPY --from=builder /workspace/bin/cleanup /cleanup

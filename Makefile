@@ -1,11 +1,11 @@
 arch        := amd64
 os          := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 
-.PHONY:
-all: test setup promote cleanup
-
 test:
 	go test ./... -v -count=1 -coverprofile cover.out
+
+.PHONY:
+all: setup promote cleanup
 
 setup:
 	go build -a -installsuffix cgo -o bin/setup cmd/setup/main.go
