@@ -6,8 +6,6 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/sethvargo/go-envconfig"
 	"os"
-
-	"log/slog"
 )
 
 func main() {
@@ -22,8 +20,6 @@ func main() {
 		os.Exit(125)
 	}
 
-	// TODO: configure logger
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
+	logger := config.SetupLogging(&conf.CommonConfig)
 	logger.Info("Setup started", "config", conf)
 }

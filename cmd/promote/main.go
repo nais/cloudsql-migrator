@@ -1,7 +1,25 @@
 package main
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"github.com/nais/cloudsql-migrator/internal/pkg/config"
+	"github.com/sethvargo/go-envconfig"
+	"os"
+)
 
 func main() {
-	fmt.Print("Promote")
+	var conf struct {
+		config.CommonConfig
+	}
+
+	ctx := context.Background()
+
+	if err := envconfig.Process(ctx, &conf); err != nil {
+		fmt.Printf("Invalid configuration: %v", err)
+		os.Exit(125)
+	}
+
+	logger := config.SetupLogging(&conf.CommonConfig)
+	logger.Info("Promote started", "config", conf)
 }

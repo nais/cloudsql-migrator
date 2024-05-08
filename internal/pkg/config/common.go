@@ -1,8 +1,10 @@
 package config
 
+import "log/slog"
+
 type Logging struct {
-	Level  string `env:"LOG_LEVEL, default=INFO"`
-	Format string `env:"LOG_FORMAT, default=JSON"`
+	Level  slog.Level `env:"LOG_LEVEL, default=INFO"`
+	Format string     `env:"LOG_FORMAT, default=TEXT"`
 }
 
 type CommonConfig struct {
