@@ -3,23 +3,29 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
+	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	"github.com/sethvargo/go-envconfig"
 	"os"
 )
 
 func main() {
-	var conf struct {
-		config.CommonConfig
-	}
+	cfg := setup.Config{}
 
 	ctx := context.Background()
 
-	if err := envconfig.Process(ctx, &conf); err != nil {
+	if err := envconfig.Process(ctx, &cfg); err != nil {
 		fmt.Printf("Invalid configuration: %v", err)
-		os.Exit(125)
+		os.Exit(1)
 	}
 
-	logger := config.SetupLogging(&conf.CommonConfig)
-	logger.Info("Setup started", "config", conf)
+	logger := config.SetupLogging(&cfg.CommonConfig)
+	app, err := common_main.Main(ctx, &cfg.CommonConfig, logger)
+	if err != nil {
+		logger.Error("Failed to complete configuration", "error", err)
+		os.Exit(2)
+	}
+
+	app.Logger.Info("Setup started", "config", cfg)
 }
