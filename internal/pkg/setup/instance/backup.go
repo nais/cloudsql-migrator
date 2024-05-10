@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-func CreateBackup(ctx context.Context, cfg *setup.Config, app *common_main.App) error {
-	app.Logger.Info("Creating backup")
+func CreateBackup(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+	mgr.Logger.Info("Creating backup")
 
 	sqladminService, err := sqladmin.NewService(ctx)
 	if err != nil {
@@ -39,7 +39,7 @@ func CreateBackup(ctx context.Context, cfg *setup.Config, app *common_main.App) 
 		}
 	}
 
-	app.Logger.Info("Backup creation complete")
+	mgr.Logger.Info("Backup creation complete")
 
 	return nil
 }

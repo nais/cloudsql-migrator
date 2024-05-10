@@ -22,17 +22,23 @@ func main() {
 	}
 
 	logger := config.SetupLogging(&cfg.CommonConfig)
-	app, err := common_main.Main(ctx, &cfg.CommonConfig, logger)
+	mgr, err := common_main.Main(ctx, &cfg.CommonConfig, logger)
 	if err != nil {
 		logger.Error("Failed to complete configuration", "error", err)
 		os.Exit(2)
 	}
 
-	app.Logger.Info("Setup started", "config", cfg)
+	mgr.Logger.Info("Setup started", "config", cfg)
 
-	err = instance.CreateBackup(ctx, cfg, app)
+	err = instance.CreateInstance(ctx, cfg, mgr)
 	if err != nil {
-		app.Logger.Error("Failed to create backup", "error", err)
+		mgr.Logger.Error("Failed to create new instance", "error", err)
+		os.Exit(4)
+	}
+
+	err = instance.CreateBackup(ctx, cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("Failed to create backup", "error", err)
 		os.Exit(3)
 	}
 

@@ -5,6 +5,11 @@ import (
 	"os"
 )
 
+type Logging struct {
+	Level  slog.Level `env:"LOG_LEVEL, default=INFO"`
+	Format string     `env:"LOG_FORMAT, default=TEXT"`
+}
+
 func SetupLogging(conf *CommonConfig) *slog.Logger {
 	opts := &slog.HandlerOptions{
 		Level: conf.Logging.Level,

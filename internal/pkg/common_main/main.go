@@ -13,14 +13,14 @@ import (
 	"log/slog"
 )
 
-type App struct {
+type Manager struct {
 	Logger    *slog.Logger
 	Clientset kubernetes.Interface
 	Client    dynamic.Interface
 	AppClient k8s.AppClient
 }
 
-func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*App, error) {
+func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*Manager, error) {
 	clientset, dynamicClient, err := newK8sClient()
 	if err != nil {
 		return nil, err
@@ -35,11 +35,11 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 
 	logger = logger.With("appName", cfg.ApplicationName,
 		"instanceName", cfg.InstanceName,
-		"newInstanceName", cfg.NewInstanceName,
+		"newInstanceName", cfg.NewInstance.Name,
 		"gcpProjectId", cfg.GcpProjectId,
 	)
 
-	return &App{
+	return &Manager{
 		Logger:    logger,
 		Clientset: clientset,
 		Client:    dynamicClient,
@@ -57,7 +57,7 @@ func resolveConfiguration(ctx context.Context, cfg *config.CommonConfig, clients
 		cfg.Resolved.GcpProjectId = projectId
 	}
 
-	app, err := client.Get(ctx, cfg.ApplicationName, v1.GetOptions{})
+	app, err := client.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		return err
 	}
