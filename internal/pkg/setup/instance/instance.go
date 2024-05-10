@@ -7,6 +7,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
+	sql_cnrm_cloud_google_com_v1beta1 "github.com/nais/liberator/pkg/apis/sql.cnrm.cloud.google.com/v1beta1"
 	"github.com/nais/liberator/pkg/namegen"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -93,4 +94,45 @@ func defineNewInstance(cfg *setup.Config, app *nais_io_v1alpha1.Application) (*n
 	}
 
 	return newInstance, nil
+}
+
+func PrepareOldInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+	mgr.Logger.Info("Preparing old instance for migration")
+
+	sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, cfg.InstanceName)
+	if err != nil {
+		return err
+	}
+
+	setFlag(sqlInstance, "cloudsql.enable_pglogical")
+	setFlag(sqlInstance, "cloudsql.logical_decoding")
+
+	_, err = mgr.SqlInstanceClient.Update(ctx, sqlInstance)
+	if err != nil {
+		return err
+	}
+
+	mgr.Logger.Info("Old instance prepared for migration")
+	return nil
+}
+
+func setFlag(sqlInstance *sql_cnrm_cloud_google_com_v1beta1.SQLInstance, flagName string) {
+	actualFlag := findFlag(sqlInstance.Spec.Settings.DatabaseFlags, flagName)
+	if actualFlag == nil {
+		sqlInstance.Spec.Settings.DatabaseFlags = append(sqlInstance.Spec.Settings.DatabaseFlags, sql_cnrm_cloud_google_com_v1beta1.SQLDatabaseFlag{
+			Name:  flagName,
+			Value: "on",
+		})
+	} else if actualFlag.Value != "on" {
+		actualFlag.Value = "on"
+	}
+}
+
+func findFlag(flags []sql_cnrm_cloud_google_com_v1beta1.SQLDatabaseFlag, key string) *sql_cnrm_cloud_google_com_v1beta1.SQLDatabaseFlag {
+	for _, flag := range flags {
+		if flag.Name == key {
+			return &flag
+		}
+	}
+	return nil
 }

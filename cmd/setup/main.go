@@ -42,4 +42,9 @@ func main() {
 		os.Exit(3)
 	}
 
+	err = instance.PrepareOldInstance(ctx, cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("Failed to prepare old instance", "error", err)
+		os.Exit(5)
+	}
 }
