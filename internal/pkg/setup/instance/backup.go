@@ -1,4 +1,4 @@
-package backup
+package instance
 
 import (
 	"context"
@@ -10,8 +10,7 @@ import (
 )
 
 func CreateBackup(ctx context.Context, cfg *setup.Config, app *common_main.App) error {
-	logger := app.Logger.With("instance", cfg.InstanceName)
-	logger.Info("Creating backup")
+	app.Logger.Info("Creating backup")
 
 	sqladminService, err := sqladmin.NewService(ctx)
 	if err != nil {
@@ -40,7 +39,7 @@ func CreateBackup(ctx context.Context, cfg *setup.Config, app *common_main.App) 
 		}
 	}
 
-	logger.Info("Backup creation complete")
+	app.Logger.Info("Backup creation complete")
 
 	return nil
 }

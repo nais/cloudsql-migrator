@@ -20,6 +20,8 @@ type CommonConfig struct {
 	ApplicationName string `env:"APP_NAME"`
 	// The namespace to work in
 	Namespace string `env:"NAMESPACE"`
+	// The new name of the instance
+	NewInstanceName string `env:"NEW_INSTANCE_NAME"`
 
 	// Logging configuration
 	Logging

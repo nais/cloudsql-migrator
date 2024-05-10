@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
+	"github.com/nais/cloudsql-migrator/internal/pkg/k8s"
 	naisv1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -17,6 +17,7 @@ type App struct {
 	Logger    *slog.Logger
 	Clientset kubernetes.Interface
 	Client    dynamic.Interface
+	AppClient k8s.AppClient
 }
 
 func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*App, error) {
@@ -25,19 +26,28 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 		return nil, err
 	}
 
-	err = resolveConfiguration(ctx, cfg, clientset, dynamicClient)
+	appClient := k8s.New(dynamicClient, cfg.Namespace)
+
+	err = resolveConfiguration(ctx, cfg, clientset, appClient)
 	if err != nil {
 		return nil, err
 	}
+
+	logger = logger.With("appName", cfg.ApplicationName,
+		"instanceName", cfg.InstanceName,
+		"newInstanceName", cfg.NewInstanceName,
+		"gcpProjectId", cfg.GcpProjectId,
+	)
 
 	return &App{
 		Logger:    logger,
 		Clientset: clientset,
 		Client:    dynamicClient,
+		AppClient: appClient,
 	}, nil
 }
 
-func resolveConfiguration(ctx context.Context, cfg *config.CommonConfig, clientset kubernetes.Interface, client dynamic.Interface) error {
+func resolveConfiguration(ctx context.Context, cfg *config.CommonConfig, clientset kubernetes.Interface, client k8s.AppClient) error {
 	ns, err := clientset.CoreV1().Namespaces().Get(ctx, cfg.Namespace, v1.GetOptions{})
 	if err != nil {
 		return err
@@ -47,17 +57,10 @@ func resolveConfiguration(ctx context.Context, cfg *config.CommonConfig, clients
 		cfg.Resolved.GcpProjectId = projectId
 	}
 
-	appClient := client.Resource(naisv1alpha1.GroupVersion.WithResource("applications")).Namespace(cfg.Namespace)
-	u, err := appClient.Get(ctx, cfg.ApplicationName, v1.GetOptions{})
+	app, err := client.Get(ctx, cfg.ApplicationName, v1.GetOptions{})
 	if err != nil {
 		return err
 	}
-
-	app := &naisv1alpha1.Application{}
-	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, app); err != nil {
-		return fmt.Errorf("converting to application: %w", err)
-	}
-
 	cfg.Resolved.InstanceName, err = resolveInstanceName(app)
 
 	return nil
