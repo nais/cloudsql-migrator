@@ -36,12 +36,12 @@ func main() {
 		os.Exit(4)
 	}
 
-	err = instance.CreateBackup(ctx, cfg, mgr)
-	if err != nil {
-		mgr.Logger.Error("Failed to create backup", "error", err)
-		os.Exit(3)
-	}
-
+	/*	err = instance.CreateBackup(ctx, cfg, mgr)
+		if err != nil {
+			mgr.Logger.Error("Failed to create backup", "error", err)
+			os.Exit(3)
+		}
+	*/
 	err = instance.PrepareOldInstance(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to prepare old instance", "error", err)

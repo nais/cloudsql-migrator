@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	naisv1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	sql_cnrm_cloud_google_com_v1beta1 "github.com/nais/liberator/pkg/apis/sql.cnrm.cloud.google.com/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,7 @@ type GenericClient[T interface {
 
 type AppClient GenericClient[*naisv1alpha1.Application, naisv1alpha1.Application]
 type SqlInstanceClient GenericClient[*sql_cnrm_cloud_google_com_v1beta1.SQLInstance, sql_cnrm_cloud_google_com_v1beta1.SQLInstance]
+type SqlSslCertClient GenericClient[*v1beta1.SQLSSLCert, v1beta1.SQLSSLCert]
 
 func New[T interface {
 	runtime.Object

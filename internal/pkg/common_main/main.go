@@ -3,6 +3,7 @@ package common_main
 import (
 	"context"
 	"fmt"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/k8s"
 	naisv1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
@@ -20,6 +21,7 @@ type Manager struct {
 	Client            dynamic.Interface
 	AppClient         k8s.AppClient
 	SqlInstanceClient k8s.SqlInstanceClient
+	SqlSslCertClient  k8s.SqlSslCertClient
 }
 
 func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*Manager, error) {
@@ -30,6 +32,7 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 
 	appClient := k8s.New[*naisv1alpha1.Application](dynamicClient, cfg.Namespace, naisv1alpha1.GroupVersion.WithResource("applications"))
 	sqlInstanceClient := k8s.New[*sql_cnrm_cloud_google_com_v1beta1.SQLInstance](dynamicClient, cfg.Namespace, sql_cnrm_cloud_google_com_v1beta1.GroupVersion.WithResource("sqlinstances"))
+	sqlSslCertClient := k8s.New[*v1beta1.SQLSSLCert](dynamicClient, cfg.Namespace, sql_cnrm_cloud_google_com_v1beta1.GroupVersion.WithResource("sqlsslcerts"))
 
 	err = resolveConfiguration(ctx, cfg, clientset, appClient)
 	if err != nil {
@@ -48,6 +51,7 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 		Client:            dynamicClient,
 		AppClient:         appClient,
 		SqlInstanceClient: sqlInstanceClient,
+		SqlSslCertClient:  sqlSslCertClient,
 	}, nil
 }
 

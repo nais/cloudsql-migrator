@@ -2,7 +2,11 @@ package instance
 
 import (
 	"context"
+	db "database/sql"
 	"fmt"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
+	_ "github.com/lib/pq"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
@@ -10,10 +14,15 @@ import (
 	sql_cnrm_cloud_google_com_v1beta1 "github.com/nais/liberator/pkg/apis/sql.cnrm.cloud.google.com/v1beta1"
 	"github.com/nais/liberator/pkg/namegen"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
+	"time"
 )
 
 const (
 	dummyAppImage = "europe-north1-docker.pkg.dev/nais-io/nais/images/kafka-debug:latest"
+	certPath      = "/tmp/client.crt"
+	keyPath       = "/tmp/client.key"
+	rootCertPath  = "/tmp/root.crt"
 )
 
 func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
@@ -112,10 +121,126 @@ func PrepareOldInstance(ctx context.Context, cfg *setup.Config, mgr *common_main
 		return err
 	}
 
+	err = prepareOldDatabase(ctx, cfg, mgr)
+	if err != nil {
+		return err
+	}
 	mgr.Logger.Info("Old instance prepared for migration")
 	return nil
 }
 
+type sqlDatabase struct {
+	Name     string
+	Port     int
+	User     string
+	Password string
+}
+
+func createSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) (*v1beta1.SQLSSLCert, error) {
+	sqlSslCert, err := mgr.SqlSslCertClient.Create(ctx, &v1beta1.SQLSSLCert{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "sql.cnrm.cloud.google.com/v1beta1",
+			Kind:       "SQLSSLCert",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "migrator",
+			Namespace: cfg.Namespace,
+			Labels: map[string]string{
+				"app":                      cfg.ApplicationName,
+				"team":                     cfg.Namespace,
+				"migrator.nais.io/cleanup": cfg.ApplicationName,
+			},
+		},
+		Spec: v1beta1.SQLSSLCertSpec{
+			CommonName: "test",
+			InstanceRef: v1alpha1.ResourceRef{
+				Name:      cfg.InstanceName,
+				Namespace: cfg.Namespace,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return sqlSslCert, nil
+}
+func prepareOldDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+	mgr.Logger.Info("Preparing old database for migration")
+
+	sqlSslCert, err := createSslCert(ctx, cfg, mgr)
+
+	for sqlSslCert.Status.Cert == nil || sqlSslCert.Status.PrivateKey == nil || sqlSslCert.Status.ServerCaCert == nil {
+		time.Sleep(3 * time.Second)
+		sqlSslCert, err = mgr.SqlSslCertClient.Get(ctx, sqlSslCert.Name)
+		if err != nil {
+			return err
+		}
+		mgr.Logger.Info("Waiting for SQLSSLCert to be ready")
+	}
+
+	err = createTempFiles(sqlSslCert.Status.Cert, sqlSslCert.Status.PrivateKey, sqlSslCert.Status.ServerCaCert)
+	if err != nil {
+		return err
+	}
+	connection := fmt.Sprint(
+		" host=35.228.136.127",
+		" port=5432",
+		" user=postgres",
+		" password=testpassword",
+		" dbname=postgres",
+		" sslmode=verify-ca",
+		" sslrootcert="+rootCertPath,
+		" sslkey="+keyPath,
+		" sslcert="+certPath,
+	)
+
+	dbConn, err := db.Open("postgres", connection)
+	if err != nil {
+		return err
+	}
+	defer dbConn.Close()
+
+	err = dbConn.Ping()
+	if err != nil {
+		mgr.Logger.Error("Failed to connect to old database", "error", err)
+		return err
+	}
+
+	_, err = dbConn.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pglogical; "+
+		"GRANT USAGE on SCHEMA pglogical to \"postgres\";"+
+		"GRANT SELECT on ALL TABLES in SCHEMA pglogical to \"postgres\";"+
+		"GRANT SELECT on ALL SEQUENCES in SCHEMA pglogical to \"postgres\";"+
+		"GRANT USAGE on SCHEMA public to \"postgres\";"+
+		"GRANT SELECT on ALL TABLES in SCHEMA public to \"postgres\";"+
+		"GRANT SELECT on ALL SEQUENCES in SCHEMA public to \"postgres\";"+
+		"ALTER USER \"postgres\" with REPLICATION;")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createTempFiles(cert, key, rootCert *string) error {
+
+	err := os.WriteFile(certPath, []byte(*cert), 0644)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(keyPath, []byte(*key), 0600)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(rootCertPath, []byte(*rootCert), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 func setFlag(sqlInstance *sql_cnrm_cloud_google_com_v1beta1.SQLInstance, flagName string) {
 	actualFlag := findFlag(sqlInstance.Spec.Settings.DatabaseFlags, flagName)
 	if actualFlag == nil {
