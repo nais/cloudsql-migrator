@@ -5,7 +5,7 @@ go 1.22.3
 require (
 	github.com/nais/liberator v0.0.0-20240508112139-876aae49c479
 	github.com/sethvargo/go-envconfig v1.0.1
-	google.golang.org/api v0.179.0
+	google.golang.org/api v0.180.0
 	k8s.io/apimachinery v0.30.0
 	k8s.io/client-go v0.30.0
 )
