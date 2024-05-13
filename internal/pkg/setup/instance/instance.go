@@ -169,6 +169,9 @@ func prepareOldDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main
 	mgr.Logger.Info("Preparing old database for migration")
 
 	sqlSslCert, err := createSslCert(ctx, cfg, mgr)
+	if err != nil {
+		return err
+	}
 
 	for sqlSslCert.Status.Cert == nil || sqlSslCert.Status.PrivateKey == nil || sqlSslCert.Status.ServerCaCert == nil {
 		time.Sleep(3 * time.Second)
