@@ -7,7 +7,6 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/k8s"
 	naisv1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
-	sql_cnrm_cloud_google_com_v1beta1 "github.com/nais/liberator/pkg/apis/sql.cnrm.cloud.google.com/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -31,8 +30,8 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 	}
 
 	appClient := k8s.New[*naisv1alpha1.Application](dynamicClient, cfg.Namespace, naisv1alpha1.GroupVersion.WithResource("applications"))
-	sqlInstanceClient := k8s.New[*sql_cnrm_cloud_google_com_v1beta1.SQLInstance](dynamicClient, cfg.Namespace, sql_cnrm_cloud_google_com_v1beta1.GroupVersion.WithResource("sqlinstances"))
-	sqlSslCertClient := k8s.New[*v1beta1.SQLSSLCert](dynamicClient, cfg.Namespace, sql_cnrm_cloud_google_com_v1beta1.GroupVersion.WithResource("sqlsslcerts"))
+	sqlInstanceClient := k8s.New[*v1beta1.SQLInstance](dynamicClient, cfg.Namespace, v1beta1.SchemeGroupVersion.WithResource("sqlinstances"))
+	sqlSslCertClient := k8s.New[*v1beta1.SQLSSLCert](dynamicClient, cfg.Namespace, v1beta1.SchemeGroupVersion.WithResource("sqlsslcerts"))
 
 	err = resolveConfiguration(ctx, cfg, clientset, appClient)
 	if err != nil {
