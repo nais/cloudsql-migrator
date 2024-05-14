@@ -16,7 +16,7 @@ require (
 	github.com/sethvargo/go-envconfig v1.0.1
 	google.golang.org/api v0.180.0
 	k8s.io/apimachinery v0.30.0
-	k8s.io/client-go v0.30.0
+	k8s.io/client-go v0.29.0
 )
 
 require (
