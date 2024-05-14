@@ -12,7 +12,6 @@ import (
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"github.com/nais/liberator/pkg/namegen"
-	"google.golang.org/api/sqladmin/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -148,25 +147,22 @@ func PrepareOldInstance(ctx context.Context, cfg *setup.Config, mgr *common_main
 }
 
 func setDatabasePassword(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager, password string) error {
-	sqlAdminService, err := sqladmin.NewService(ctx)
-	if err != nil {
-		return err
-	}
-
-	user, err := sqlAdminService.Users.Get(cfg.GcpProjectId, cfg.InstanceName, databaseUser).Context(ctx).Do()
+	usersService := mgr.SqlAdminService.Users
+	user, err := usersService.Get(cfg.GcpProjectId, cfg.InstanceName, databaseUser).Context(ctx).Do()
 	if err != nil {
 		return err
 	}
 	user.Password = password
 
 	// Using insert to update the password, as update doesn't work as it should
-	_, err = sqlAdminService.Users.Insert(cfg.GcpProjectId, cfg.InstanceName, user).Context(ctx).Do()
+	_, err = usersService.Insert(cfg.GcpProjectId, cfg.InstanceName, user).Context(ctx).Do()
 	if err != nil {
 		mgr.Logger.Error("failed to update Cloud SQL user password", "error", err)
 		return err
 	}
 	return nil
 }
+
 func createSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) (*v1beta1.SQLSSLCert, error) {
 	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", cfg.ApplicationName), 63)
 	if err != nil {

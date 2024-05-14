@@ -7,6 +7,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/k8s"
 	naisv1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
+	"google.golang.org/api/sqladmin/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -16,11 +17,10 @@ import (
 
 type Manager struct {
 	Logger            *slog.Logger
-	Clientset         kubernetes.Interface
-	Client            dynamic.Interface
 	AppClient         k8s.AppClient
 	SqlInstanceClient k8s.SqlInstanceClient
 	SqlSslCertClient  k8s.SqlSslCertClient
+	SqlAdminService   *sqladmin.Service
 }
 
 func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*Manager, error) {
@@ -32,6 +32,11 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 	appClient := k8s.New[*naisv1alpha1.Application](dynamicClient, cfg.Namespace, naisv1alpha1.GroupVersion.WithResource("applications"))
 	sqlInstanceClient := k8s.New[*v1beta1.SQLInstance](dynamicClient, cfg.Namespace, v1beta1.SchemeGroupVersion.WithResource("sqlinstances"))
 	sqlSslCertClient := k8s.New[*v1beta1.SQLSSLCert](dynamicClient, cfg.Namespace, v1beta1.SchemeGroupVersion.WithResource("sqlsslcerts"))
+
+	sqlAdminService, err := sqladmin.NewService(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SqlAdminService: %w", err)
+	}
 
 	err = resolveConfiguration(ctx, cfg, clientset, appClient)
 	if err != nil {
@@ -46,11 +51,10 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 
 	return &Manager{
 		Logger:            logger,
-		Clientset:         clientset,
-		Client:            dynamicClient,
 		AppClient:         appClient,
 		SqlInstanceClient: sqlInstanceClient,
 		SqlSslCertClient:  sqlSslCertClient,
+		SqlAdminService:   sqlAdminService,
 	}, nil
 }
 
@@ -62,13 +66,19 @@ func resolveConfiguration(ctx context.Context, cfg *config.CommonConfig, clients
 
 	if projectId, ok := ns.Annotations["cnrm.cloud.google.com/project-id"]; ok {
 		cfg.Resolved.GcpProjectId = projectId
+	} else {
+		return fmt.Errorf("unable to determine google project id for namespace %s", cfg.Namespace)
 	}
 
 	app, err := client.Get(ctx, cfg.ApplicationName)
 	if err != nil {
+		return fmt.Errorf("unable to get existing application: %w", err)
+	}
+
+	cfg.Resolved.InstanceName, err = resolveInstanceName(app)
+	if err != nil {
 		return err
 	}
-	cfg.Resolved.InstanceName, err = resolveInstanceName(app)
 
 	return nil
 }
@@ -95,17 +105,17 @@ func newK8sClient() (kubernetes.Interface, dynamic.Interface, error) {
 
 	clusterConfig, err := kubeConfig.ClientConfig()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("unable to get cluster config: %w", err)
 	}
 
 	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("unable to create kubernetes client: %w", err)
 	}
 
 	dynamicClient, err := dynamic.NewForConfig(clusterConfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("unable to create dynamic kubernetes client: %w", err)
 	}
 
 	return clientset, dynamicClient, nil

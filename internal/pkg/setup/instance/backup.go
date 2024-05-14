@@ -12,13 +12,8 @@ import (
 func CreateBackup(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
 	mgr.Logger.Info("Creating backup")
 
-	sqladminService, err := sqladmin.NewService(ctx)
-	if err != nil {
-		return err
-	}
-
-	backupRunsService := sqladminService.BackupRuns
-	operationsService := sqladminService.Operations
+	backupRunsService := mgr.SqlAdminService.BackupRuns
+	operationsService := mgr.SqlAdminService.Operations
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
