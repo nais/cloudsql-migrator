@@ -6,6 +6,7 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/k8s"
+	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	naisv1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"google.golang.org/api/sqladmin/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,7 +17,10 @@ import (
 )
 
 type Manager struct {
-	Logger            *slog.Logger
+	Logger *slog.Logger
+
+	Resolved *resolved.Resolved
+
 	AppClient         k8s.AppClient
 	SqlInstanceClient k8s.SqlInstanceClient
 	SqlSslCertClient  k8s.SqlSslCertClient
@@ -38,19 +42,21 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 		return nil, fmt.Errorf("failed to create SqlAdminService: %w", err)
 	}
 
-	err = resolveConfiguration(ctx, cfg, clientset, appClient)
+	r := &resolved.Resolved{}
+	err = resolveClusterInformation(ctx, cfg, clientset, appClient, r)
 	if err != nil {
 		return nil, err
 	}
 
 	logger = logger.With("appName", cfg.ApplicationName,
-		"instanceName", cfg.InstanceName,
+		"instanceName", r.InstanceName,
 		"newInstanceName", cfg.NewInstance.Name,
-		"gcpProjectId", cfg.GcpProjectId,
+		"gcpProjectId", r.GcpProjectId,
 	)
 
 	return &Manager{
 		Logger:            logger,
+		Resolved:          r,
 		AppClient:         appClient,
 		SqlInstanceClient: sqlInstanceClient,
 		SqlSslCertClient:  sqlSslCertClient,
@@ -58,14 +64,14 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 	}, nil
 }
 
-func resolveConfiguration(ctx context.Context, cfg *config.CommonConfig, clientset kubernetes.Interface, client k8s.AppClient) error {
+func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, clientset kubernetes.Interface, client k8s.AppClient, resolved *resolved.Resolved) error {
 	ns, err := clientset.CoreV1().Namespaces().Get(ctx, cfg.Namespace, v1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
 	if projectId, ok := ns.Annotations["cnrm.cloud.google.com/project-id"]; ok {
-		cfg.Resolved.GcpProjectId = projectId
+		resolved.GcpProjectId = projectId
 	} else {
 		return fmt.Errorf("unable to determine google project id for namespace %s", cfg.Namespace)
 	}
@@ -75,7 +81,7 @@ func resolveConfiguration(ctx context.Context, cfg *config.CommonConfig, clients
 		return fmt.Errorf("unable to get existing application: %w", err)
 	}
 
-	cfg.Resolved.InstanceName, err = resolveInstanceName(app)
+	resolved.InstanceName, err = resolveInstanceName(app)
 	if err != nil {
 		return err
 	}

@@ -60,7 +60,7 @@ func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 					"migrator.nais.io/cleanup": app.Name,
 				},
 				Annotations: map[string]string{
-					"migrator.nais.io/old-instance": cfg.InstanceName,
+					"migrator.nais.io/old-instance": mgr.Resolved.InstanceName,
 					"migrator.nais.io/new-instance": cfg.NewInstance.Name,
 				},
 			},
@@ -119,7 +119,7 @@ func defineNewInstance(cfg *setup.Config, app *nais_io_v1alpha1.Application) (*n
 func PrepareOldInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
 	mgr.Logger.Info("Preparing old instance for migration")
 
-	sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, cfg.InstanceName)
+	sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.InstanceName)
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func PrepareOldInstance(ctx context.Context, cfg *setup.Config, mgr *common_main
 	}
 
 	databasePassword := rand.String(14)
-	err = setDatabasePassword(ctx, cfg, mgr, databasePassword)
+	err = setDatabasePassword(ctx, mgr, databasePassword)
 	if err != nil {
 		return err
 	}
@@ -146,16 +146,16 @@ func PrepareOldInstance(ctx context.Context, cfg *setup.Config, mgr *common_main
 	return nil
 }
 
-func setDatabasePassword(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager, password string) error {
+func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, password string) error {
 	usersService := mgr.SqlAdminService.Users
-	user, err := usersService.Get(cfg.GcpProjectId, cfg.InstanceName, databaseUser).Context(ctx).Do()
+	user, err := usersService.Get(mgr.Resolved.GcpProjectId, mgr.Resolved.InstanceName, databaseUser).Context(ctx).Do()
 	if err != nil {
 		return err
 	}
 	user.Password = password
 
 	// Using insert to update the password, as update doesn't work as it should
-	_, err = usersService.Insert(cfg.GcpProjectId, cfg.InstanceName, user).Context(ctx).Do()
+	_, err = usersService.Insert(mgr.Resolved.GcpProjectId, mgr.Resolved.InstanceName, user).Context(ctx).Do()
 	if err != nil {
 		mgr.Logger.Error("failed to update Cloud SQL user password", "error", err)
 		return err
@@ -188,7 +188,7 @@ func createSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Mana
 			Spec: v1beta1.SQLSSLCertSpec{
 				CommonName: "test",
 				InstanceRef: v1alpha1.ResourceRef{
-					Name:      cfg.InstanceName,
+					Name:      mgr.Resolved.InstanceName,
 					Namespace: cfg.Namespace,
 				},
 			},

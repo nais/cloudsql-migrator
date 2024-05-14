@@ -1,11 +1,5 @@
 package config
 
-// Resolved is configuration that is resolved by looking up in the cluster
-type Resolved struct {
-	GcpProjectId string
-	InstanceName string
-}
-
 type NewInstance struct {
 	Name     string `env:"NAME, required"`
 	Type     string `env:"TYPE"`
@@ -23,7 +17,4 @@ type CommonConfig struct {
 
 	// Logging configuration
 	Logging
-
-	// Resolved configuration
-	Resolved
 }

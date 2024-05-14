@@ -21,14 +21,14 @@ func CreateBackup(ctx context.Context, cfg *setup.Config, mgr *common_main.Manag
 	backupRun := &sqladmin.BackupRun{
 		Description: "Pre-migration backup",
 	}
-	op, err := backupRunsService.Insert(cfg.GcpProjectId, cfg.InstanceName, backupRun).Context(ctx).Do()
+	op, err := backupRunsService.Insert(mgr.Resolved.GcpProjectId, mgr.Resolved.InstanceName, backupRun).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to create backup: %w", err)
 	}
 
 	for op.Status != "DONE" {
 		time.Sleep(1 * time.Second)
-		op, err = operationsService.Get(cfg.GcpProjectId, op.Name).Context(ctx).Do()
+		op, err = operationsService.Get(mgr.Resolved.GcpProjectId, op.Name).Context(ctx).Do()
 		if err != nil {
 			return fmt.Errorf("failed to get backup operation status: %w", err)
 		}
