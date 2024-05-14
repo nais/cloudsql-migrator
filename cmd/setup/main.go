@@ -6,6 +6,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
+	"github.com/nais/cloudsql-migrator/internal/pkg/setup/database"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"github.com/sethvargo/go-envconfig"
 	"os"
@@ -33,18 +34,24 @@ func main() {
 	err = instance.CreateInstance(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to create new instance", "error", err)
+		os.Exit(3)
+	}
+
+	err = instance.CreateBackup(ctx, mgr)
+	if err != nil {
+		mgr.Logger.Error("Failed to create backup", "error", err)
 		os.Exit(4)
 	}
 
-	/*	err = instance.CreateBackup(ctx, cfg, mgr)
-		if err != nil {
-			mgr.Logger.Error("Failed to create backup", "error", err)
-			os.Exit(3)
-		}
-	*/
 	err = instance.PrepareOldInstance(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to prepare old instance", "error", err)
 		os.Exit(5)
+	}
+
+	err = database.PrepareOldDatabase(ctx, cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("Failed to prepare old database", "error", err)
+		os.Exit(6)
 	}
 }

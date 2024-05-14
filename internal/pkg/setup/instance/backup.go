@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
-	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	"google.golang.org/api/sqladmin/v1"
 	"time"
 )
 
-func CreateBackup(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+func CreateBackup(ctx context.Context, mgr *common_main.Manager) error {
 	mgr.Logger.Info("Creating backup")
 
 	backupRunsService := mgr.SqlAdminService.BackupRuns

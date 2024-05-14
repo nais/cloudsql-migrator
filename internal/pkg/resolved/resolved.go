@@ -4,4 +4,5 @@ package resolved
 type Resolved struct {
 	GcpProjectId string
 	InstanceName string
+	InstanceIp   string
 }

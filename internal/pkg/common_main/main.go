@@ -43,7 +43,7 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 	}
 
 	r := &resolved.Resolved{}
-	err = resolveClusterInformation(ctx, cfg, clientset, appClient, r)
+	err = resolveClusterInformation(ctx, cfg, clientset, appClient, sqlInstanceClient, r)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 	}, nil
 }
 
-func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, clientset kubernetes.Interface, client k8s.AppClient, resolved *resolved.Resolved) error {
+func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, clientset kubernetes.Interface, client k8s.AppClient, sqlInstanceClient k8s.SqlInstanceClient, resolved *resolved.Resolved) error {
 	ns, err := clientset.CoreV1().Namespaces().Get(ctx, cfg.Namespace, v1.GetOptions{})
 	if err != nil {
 		return err
@@ -85,6 +85,15 @@ func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, cl
 	if err != nil {
 		return err
 	}
+
+	sqlInstance, err := sqlInstanceClient.Get(ctx, resolved.InstanceName)
+	if err != nil {
+		return fmt.Errorf("unable to get existing sql instance: %w", err)
+	}
+	if sqlInstance.Status.PublicIpAddress == nil {
+		return fmt.Errorf("sql instance %s does not have public ip address", resolved.InstanceName)
+	}
+	resolved.InstanceIp = *sqlInstance.Status.PublicIpAddress
 
 	return nil
 }
