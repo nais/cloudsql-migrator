@@ -32,6 +32,7 @@ Three phases: Setup, Promotion, Cleanup
 4. Set up Database Migration
    - Create migration job
    - Create connection profile for the source instance
+   - Create connection profile for the target instance
    - Set the correct allowlist for the source instance (primary and outgoing IP)
    - Start migration job
    - Wait for initial load replication...

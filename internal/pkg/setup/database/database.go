@@ -32,7 +32,7 @@ func PrepareOldDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main
 		return err
 	}
 
-	err = installExtension(ctx, cfg, mgr, databasePassword)
+	err = installExtension(ctx, cfg, mgr)
 	if err != nil {
 		return err
 	}
@@ -53,6 +53,9 @@ func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, password
 		mgr.Logger.Error("failed to update Cloud SQL user password", "error", err)
 		return err
 	}
+
+	mgr.Resolved.DbPassword = password
+
 	return nil
 }
 
@@ -95,7 +98,7 @@ func createSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Mana
 	return sqlSslCert, nil
 }
 
-func installExtension(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager, databasePassword string) error {
+func installExtension(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
 	mgr.Logger.Info("Preparing old database for migration")
 
 	sqlSslCert, err := createSslCert(ctx, cfg, mgr)
@@ -112,6 +115,10 @@ func installExtension(ctx context.Context, cfg *setup.Config, mgr *common_main.M
 		mgr.Logger.Info("Waiting for SQLSSLCert to be ready")
 	}
 
+	mgr.Resolved.SslCaCert = *sqlSslCert.Status.ServerCaCert
+	mgr.Resolved.SslClientCert = *sqlSslCert.Status.Cert
+	mgr.Resolved.SslClientKey = *sqlSslCert.Status.PrivateKey
+
 	err = createTempFiles(sqlSslCert.Status.Cert, sqlSslCert.Status.PrivateKey, sqlSslCert.Status.ServerCaCert)
 	if err != nil {
 		return err
@@ -121,7 +128,7 @@ func installExtension(ctx context.Context, cfg *setup.Config, mgr *common_main.M
 		" host="+mgr.Resolved.InstanceIp,
 		" port="+databasePort,
 		" user="+databaseUser,
-		" password="+databasePassword,
+		" password="+mgr.Resolved.DbPassword,
 		" dbname="+databaseName,
 		" sslmode=verify-ca",
 		" sslrootcert="+rootCertPath,
@@ -157,7 +164,6 @@ func installExtension(ctx context.Context, cfg *setup.Config, mgr *common_main.M
 }
 
 func createTempFiles(cert, key, rootCert *string) error {
-
 	err := os.WriteFile(certPath, []byte(*cert), 0644)
 	if err != nil {
 		return err

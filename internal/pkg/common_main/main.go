@@ -1,6 +1,7 @@
 package common_main
 
 import (
+	dms "cloud.google.com/go/clouddms/apiv1"
 	"context"
 	"fmt"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
@@ -25,6 +26,7 @@ type Manager struct {
 	SqlInstanceClient k8s.SqlInstanceClient
 	SqlSslCertClient  k8s.SqlSslCertClient
 	SqlAdminService   *sqladmin.Service
+	DBMigrationClient *dms.DataMigrationClient
 }
 
 func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*Manager, error) {
@@ -40,6 +42,11 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 	sqlAdminService, err := sqladmin.NewService(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SqlAdminService: %w", err)
+	}
+
+	dbMigrationclient, err := dms.NewDataMigrationClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dbMigrationclient: %w", err)
 	}
 
 	r := &resolved.Resolved{}
@@ -61,6 +68,7 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 		SqlInstanceClient: sqlInstanceClient,
 		SqlSslCertClient:  sqlSslCertClient,
 		SqlAdminService:   sqlAdminService,
+		DBMigrationClient: dbMigrationclient,
 	}, nil
 }
 
