@@ -29,7 +29,12 @@ const (
 
 func PrepareOldDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
 	databasePassword := rand.String(14)
-	err := setDatabasePassword(ctx, mgr, databasePassword)
+	err := setDatabasePassword(ctx, mgr, mgr.Resolved.InstanceName, databasePassword, &mgr.Resolved.DbPassword)
+	if err != nil {
+		return err
+	}
+
+	err = createSslCert(ctx, cfg, mgr, mgr.Resolved.InstanceName, &mgr.Resolved.SourceSslCert)
 	if err != nil {
 		return err
 	}
@@ -39,27 +44,37 @@ func PrepareOldDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main
 		return err
 	}
 
+	return nil
+}
+
+func PrepareNewDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+	databasePassword := rand.String(14)
+	err := setDatabasePassword(ctx, mgr, cfg.CommonConfig.NewInstance.Name, databasePassword, &mgr.Resolved.TargetDbPassword)
+	if err != nil {
+		return err
+	}
+
 	err = createSslCert(ctx, cfg, mgr, cfg.CommonConfig.NewInstance.Name, &mgr.Resolved.TargetSslCert)
 
 	return nil
 }
 
-func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, password string) error {
+func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance string, password string, resolved *string) error {
 	usersService := mgr.SqlAdminService.Users
-	user, err := usersService.Get(mgr.Resolved.GcpProjectId, mgr.Resolved.InstanceName, databaseUser).Context(ctx).Do()
+	user, err := usersService.Get(mgr.Resolved.GcpProjectId, instance, databaseUser).Context(ctx).Do()
 	if err != nil {
 		return err
 	}
 	user.Password = password
 
 	// Using insert to update the password, as update doesn't work as it should
-	_, err = usersService.Insert(mgr.Resolved.GcpProjectId, mgr.Resolved.InstanceName, user).Context(ctx).Do()
+	_, err = usersService.Insert(mgr.Resolved.GcpProjectId, instance, user).Context(ctx).Do()
 	if err != nil {
 		mgr.Logger.Error("failed to update Cloud SQL user password", "error", err)
 		return err
 	}
 
-	mgr.Resolved.DbPassword = password
+	*resolved = password
 
 	return nil
 }
@@ -119,12 +134,7 @@ func createSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Mana
 func installExtension(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
 	mgr.Logger.Info("Preparing old database for migration")
 
-	err := createSslCert(ctx, cfg, mgr, mgr.Resolved.InstanceName, &mgr.Resolved.SourceSslCert)
-	if err != nil {
-		return err
-	}
-
-	err = createTempFiles(&mgr.Resolved.SourceSslCert.SslClientCert, &mgr.Resolved.SourceSslCert.SslClientKey, &mgr.Resolved.SourceSslCert.SslCaCert)
+	err := createTempFiles(&mgr.Resolved.SourceSslCert.SslClientCert, &mgr.Resolved.SourceSslCert.SslClientKey, &mgr.Resolved.SourceSslCert.SslCaCert)
 	if err != nil {
 		return err
 	}

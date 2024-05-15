@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
@@ -10,7 +12,6 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/migration"
 	"github.com/sethvargo/go-envconfig"
-	"os"
 )
 
 func main() {
@@ -56,10 +57,16 @@ func main() {
 		os.Exit(6)
 	}
 
+	err = database.PrepareNewDatabase(ctx, cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("Failed to prepare new database", "error", err)
+		os.Exit(7)
+	}
+
 	err = migration.SetupMigration(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to setup migration", "error", err)
-		os.Exit(7)
+		os.Exit(8)
 	}
 
 }
