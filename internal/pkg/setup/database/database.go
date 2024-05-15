@@ -4,16 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
+	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"github.com/nais/liberator/pkg/namegen"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"os"
-	"time"
 )
 
 const (
@@ -36,6 +38,9 @@ func PrepareOldDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main
 	if err != nil {
 		return err
 	}
+
+	err = createSslCert(ctx, cfg, mgr, cfg.CommonConfig.NewInstance.Name, &mgr.Resolved.TargetSslCert)
+
 	return nil
 }
 
@@ -59,10 +64,10 @@ func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, password
 	return nil
 }
 
-func createSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) (*v1beta1.SQLSSLCert, error) {
-	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", cfg.ApplicationName), 63)
+func createSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager, instance string, sslCert *resolved.SslCert) error {
+	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", instance), 63)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	sqlSslCert, err := mgr.SqlSslCertClient.Get(ctx, helperName)
@@ -84,24 +89,13 @@ func createSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Mana
 			Spec: v1beta1.SQLSSLCertSpec{
 				CommonName: "test",
 				InstanceRef: v1alpha1.ResourceRef{
-					Name:      mgr.Resolved.InstanceName,
+					Name:      instance,
 					Namespace: cfg.Namespace,
 				},
 			},
 		})
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	return sqlSslCert, nil
-}
-
-func installExtension(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
-	mgr.Logger.Info("Preparing old database for migration")
-
-	sqlSslCert, err := createSslCert(ctx, cfg, mgr)
 	if err != nil {
 		return err
 	}
@@ -115,11 +109,22 @@ func installExtension(ctx context.Context, cfg *setup.Config, mgr *common_main.M
 		mgr.Logger.Info("Waiting for SQLSSLCert to be ready")
 	}
 
-	mgr.Resolved.SslCaCert = *sqlSslCert.Status.ServerCaCert
-	mgr.Resolved.SslClientCert = *sqlSslCert.Status.Cert
-	mgr.Resolved.SslClientKey = *sqlSslCert.Status.PrivateKey
+	sslCert.SslCaCert = *sqlSslCert.Status.ServerCaCert
+	sslCert.SslClientCert = *sqlSslCert.Status.Cert
+	sslCert.SslClientKey = *sqlSslCert.Status.PrivateKey
 
-	err = createTempFiles(sqlSslCert.Status.Cert, sqlSslCert.Status.PrivateKey, sqlSslCert.Status.ServerCaCert)
+	return nil
+}
+
+func installExtension(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+	mgr.Logger.Info("Preparing old database for migration")
+
+	err := createSslCert(ctx, cfg, mgr, mgr.Resolved.InstanceName, &mgr.Resolved.SourceSslCert)
+	if err != nil {
+		return err
+	}
+
+	err = createTempFiles(&mgr.Resolved.SourceSslCert.SslClientCert, &mgr.Resolved.SourceSslCert.SslClientKey, &mgr.Resolved.SourceSslCert.SslCaCert)
 	if err != nil {
 		return err
 	}

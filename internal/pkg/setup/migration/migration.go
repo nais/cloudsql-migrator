@@ -1,9 +1,10 @@
 package migration
 
 import (
-	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
 	"context"
 	"fmt"
+
+	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	"google.golang.org/grpc/codes"
@@ -57,9 +58,9 @@ func getDmsConnectionProfile(cfg *setup.Config, mgr *common_main.Manager) *cloud
 				Password: mgr.Resolved.DbPassword,
 				Ssl: &clouddmspb.SslConfig{
 					Type:              2,
-					ClientKey:         mgr.Resolved.SslClientKey,
-					ClientCertificate: mgr.Resolved.SslClientCert,
-					CaCertificate:     mgr.Resolved.SslCaCert,
+					ClientKey:         mgr.Resolved.SourceSslCert.SslClientKey,
+					ClientCertificate: mgr.Resolved.SourceSslCert.SslClientCert,
+					CaCertificate:     mgr.Resolved.SourceSslCert.SslCaCert,
 				},
 				CloudSqlId:   mgr.Resolved.InstanceName,
 				Connectivity: &clouddmspb.PostgreSqlConnectionProfile_StaticIpConnectivity{},
