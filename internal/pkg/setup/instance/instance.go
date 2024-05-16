@@ -29,6 +29,8 @@ func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 		return err
 	}
 
+	mgr.Resolved.TargetInstanceName = targetInstance.Name
+
 	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", cfg.ApplicationName), 63)
 	if err != nil {
 		return err
@@ -103,7 +105,7 @@ func defineTargetInstance(cfg *setup.Config, app *nais_io_v1alpha1.Application) 
 	return targetInstance, nil
 }
 
-func PrepareSourceInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error {
 	mgr.Logger.Info("preparing source instance for migration")
 
 	sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
@@ -119,6 +121,19 @@ func PrepareSourceInstance(ctx context.Context, cfg *setup.Config, mgr *common_m
 		return err
 	}
 
+	mgr.Logger.Info("source instance prepared for migration")
+	return nil
+}
+
+func PrepareTargetInstance(ctx context.Context, mgr *common_main.Manager) error {
+	mgr.Logger.Info("preparing source instance for migration")
+
+	sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.TargetInstanceName)
+	if err != nil {
+		return err
+	}
+
+	mgr.Resolved.TargetInstanceIp = *sqlInstance.Status.PublicIpAddress
 	mgr.Logger.Info("source instance prepared for migration")
 	return nil
 }

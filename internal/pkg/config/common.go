@@ -1,5 +1,12 @@
 package config
 
+const (
+	DatabaseName   = "postgres"
+	DatabaseUser   = "postgres"
+	DatabasePort   = 5432
+	DatabaseDriver = "postgres"
+)
+
 type TargetInstance struct {
 	Name     string `env:"NAME, required"`
 	Type     string `env:"TYPE"`

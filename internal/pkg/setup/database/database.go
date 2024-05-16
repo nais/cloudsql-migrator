@@ -5,16 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
+	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"k8s.io/apimachinery/pkg/util/rand"
-)
-
-const (
-	databaseName   = "postgres"
-	databaseUser   = "postgres"
-	databasePort   = "5432"
-	databaseDriver = "postgres"
+	"strconv"
 )
 
 func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
@@ -51,7 +46,7 @@ func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 
 func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance string, password string, resolved *string) error {
 	usersService := mgr.SqlAdminService.Users
-	user, err := usersService.Get(mgr.Resolved.GcpProjectId, instance, databaseUser).Context(ctx).Do()
+	user, err := usersService.Get(mgr.Resolved.GcpProjectId, instance, config.DatabaseUser).Context(ctx).Do()
 	if err != nil {
 		return err
 	}
@@ -74,17 +69,17 @@ func installExtension(ctx context.Context, mgr *common_main.Manager) error {
 
 	connection := fmt.Sprint(
 		" host="+mgr.Resolved.SourceInstanceIp,
-		" port="+databasePort,
-		" user="+databaseUser,
+		" port="+strconv.Itoa(config.DatabasePort),
+		" user="+config.DatabaseUser,
 		" password="+mgr.Resolved.SourceDbPassword,
-		" dbname="+databaseName,
+		" dbname="+config.DatabaseName,
 		" sslmode=verify-ca",
 		" sslrootcert="+instance.RootCertPath,
 		" sslkey="+instance.KeyPath,
 		" sslcert="+instance.CertPath,
 	)
 
-	dbConn, err := sql.Open(databaseDriver, connection)
+	dbConn, err := sql.Open(config.DatabaseDriver, connection)
 	if err != nil {
 		return err
 	}
