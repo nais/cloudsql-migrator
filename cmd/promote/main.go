@@ -16,10 +16,10 @@ func main() {
 	ctx := context.Background()
 
 	if err := envconfig.Process(ctx, &conf); err != nil {
-		fmt.Printf("Invalid configuration: %v", err)
+		fmt.Printf("invalid configuration: %v", err)
 		os.Exit(125)
 	}
 
 	logger := config.SetupLogging(&conf.CommonConfig)
-	logger.Info("Promote started", "config", conf)
+	logger.Info("promote started", "config", conf)
 }

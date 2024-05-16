@@ -1,6 +1,6 @@
 package config
 
-type NewInstance struct {
+type TargetInstance struct {
 	Name     string `env:"NAME, required"`
 	Type     string `env:"TYPE"`
 	Tier     string `env:"TIER"`
@@ -13,7 +13,7 @@ type CommonConfig struct {
 	// The namespace to work in
 	Namespace string `env:"NAMESPACE, required"`
 	// New instance configuration
-	NewInstance NewInstance `env:", prefix=NEW_INSTANCE_"`
+	TargetInstance TargetInstance `env:", prefix=TARGET_INSTANCE_"`
 
 	// Logging configuration
 	Logging

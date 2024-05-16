@@ -27,15 +27,15 @@ func main() {
 	logger := config.SetupLogging(&cfg.CommonConfig)
 	mgr, err := common_main.Main(ctx, &cfg.CommonConfig, logger)
 	if err != nil {
-		logger.Error("Failed to complete configuration", "error", err)
+		logger.Error("failed to complete configuration", "error", err)
 		os.Exit(2)
 	}
 
-	mgr.Logger.Info("Setup started", "config", cfg)
+	mgr.Logger.Info("setup started", "config", cfg)
 
 	err = instance.CreateInstance(ctx, cfg, mgr)
 	if err != nil {
-		mgr.Logger.Error("Failed to create new instance", "error", err)
+		mgr.Logger.Error("failed to create target instance", "error", err)
 		os.Exit(3)
 	}
 
@@ -45,27 +45,27 @@ func main() {
 	//	os.Exit(4)
 	//}
 
-	err = instance.PrepareOldInstance(ctx, cfg, mgr)
+	err = instance.PrepareSourceInstance(ctx, cfg, mgr)
 	if err != nil {
-		mgr.Logger.Error("Failed to prepare old instance", "error", err)
+		mgr.Logger.Error("failed to prepare source instance", "error", err)
 		os.Exit(5)
 	}
 
-	err = database.PrepareOldDatabase(ctx, cfg, mgr)
+	err = database.PrepareSourceDatabase(ctx, cfg, mgr)
 	if err != nil {
-		mgr.Logger.Error("Failed to prepare old database", "error", err)
+		mgr.Logger.Error("failed to prepare source database", "error", err)
 		os.Exit(6)
 	}
 
-	err = database.PrepareNewDatabase(ctx, cfg, mgr)
+	err = database.PrepareTargetDatabase(ctx, cfg, mgr)
 	if err != nil {
-		mgr.Logger.Error("Failed to prepare new database", "error", err)
+		mgr.Logger.Error("failed to prepare target database", "error", err)
 		os.Exit(7)
 	}
 
 	err = migration.SetupMigration(ctx, cfg, mgr)
 	if err != nil {
-		mgr.Logger.Error("Failed to setup migration", "error", err)
+		mgr.Logger.Error("failed to setup migration", "error", err)
 		os.Exit(8)
 	}
 

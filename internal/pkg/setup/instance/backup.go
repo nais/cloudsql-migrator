@@ -20,7 +20,7 @@ func CreateBackup(ctx context.Context, mgr *common_main.Manager) error {
 	backupRun := &sqladmin.BackupRun{
 		Description: "Pre-migration backup",
 	}
-	op, err := backupRunsService.Insert(mgr.Resolved.GcpProjectId, mgr.Resolved.InstanceName, backupRun).Context(ctx).Do()
+	op, err := backupRunsService.Insert(mgr.Resolved.GcpProjectId, mgr.Resolved.SourceInstanceName, backupRun).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to create backup: %w", err)
 	}

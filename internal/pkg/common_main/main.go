@@ -55,10 +55,10 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 		return nil, err
 	}
 
-	logger = logger.With("appName", cfg.ApplicationName,
-		"instanceName", r.InstanceName,
-		"newInstanceName", cfg.NewInstance.Name,
-		"gcpProjectId", r.GcpProjectId,
+	logger = logger.With("app", cfg.ApplicationName,
+		"sourceInstance", r.SourceInstanceName,
+		"targetInstance", cfg.TargetInstance.Name,
+		"projectId", r.GcpProjectId,
 	)
 
 	return &Manager{
@@ -89,19 +89,19 @@ func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, cl
 		return fmt.Errorf("unable to get existing application: %w", err)
 	}
 
-	resolved.InstanceName, err = resolveInstanceName(app)
+	resolved.SourceInstanceName, err = resolveInstanceName(app)
 	if err != nil {
 		return err
 	}
 
-	sqlInstance, err := sqlInstanceClient.Get(ctx, resolved.InstanceName)
+	sqlInstance, err := sqlInstanceClient.Get(ctx, resolved.SourceInstanceName)
 	if err != nil {
 		return fmt.Errorf("unable to get existing sql instance: %w", err)
 	}
 	if sqlInstance.Status.PublicIpAddress == nil {
-		return fmt.Errorf("sql instance %s does not have public ip address", resolved.InstanceName)
+		return fmt.Errorf("sql instance %s does not have public ip address", resolved.SourceInstanceName)
 	}
-	resolved.InstanceIp = *sqlInstance.Status.PublicIpAddress
+	resolved.SourceInstanceIp = *sqlInstance.Status.PublicIpAddress
 
 	return nil
 }

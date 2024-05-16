@@ -29,16 +29,16 @@ func createConnectionProfile(ctx context.Context, cfg *setup.Config, mgr *common
 	})
 
 	if st, ok := status.FromError(err); ok && st.Code() == codes.AlreadyExists {
-		mgr.Logger.Info("Connection profile already exists", "name", cp.Name)
+		mgr.Logger.Info("connection profile already exists", "name", cp.Name)
 		return nil
 	}
 
 	if err != nil {
-		mgr.Logger.Error("Failed to create connection profile", "error", err)
+		mgr.Logger.Error("failed to create connection profile", "error", err)
 		return err
 	}
 	if op.Done() {
-		mgr.Logger.Info("Connection profile created", "name", cp.Name)
+		mgr.Logger.Info("connection profile created", "name", cp.Name)
 	}
 	return nil
 }
@@ -52,17 +52,17 @@ func getDmsConnectionProfile(cfg *setup.Config, mgr *common_main.Manager) *cloud
 		Name: cfg.ApplicationName,
 		ConnectionProfile: &clouddmspb.ConnectionProfile_Postgresql{
 			Postgresql: &clouddmspb.PostgreSqlConnectionProfile{
-				Host:     mgr.Resolved.InstanceIp,
+				Host:     mgr.Resolved.SourceInstanceIp,
 				Port:     5432,
 				Username: "postgres",
-				Password: mgr.Resolved.DbPassword,
+				Password: mgr.Resolved.SourceDbPassword,
 				Ssl: &clouddmspb.SslConfig{
 					Type:              2,
 					ClientKey:         mgr.Resolved.SourceSslCert.SslClientKey,
 					ClientCertificate: mgr.Resolved.SourceSslCert.SslClientCert,
 					CaCertificate:     mgr.Resolved.SourceSslCert.SslCaCert,
 				},
-				CloudSqlId:   mgr.Resolved.InstanceName,
+				CloudSqlId:   mgr.Resolved.SourceInstanceName,
 				Connectivity: &clouddmspb.PostgreSqlConnectionProfile_StaticIpConnectivity{},
 			},
 		},

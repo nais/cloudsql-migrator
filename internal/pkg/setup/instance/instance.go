@@ -19,14 +19,12 @@ const (
 )
 
 func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
-	mgr.Logger.Info("Starting creation of target instance")
-
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		return err
 	}
 
-	newInstance, err := defineNewInstance(cfg, app)
+	targetInstance, err := defineTargetInstance(cfg, app)
 	if err != nil {
 		return err
 	}
@@ -49,13 +47,13 @@ func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 					"migrator.nais.io/cleanup": app.Name,
 				},
 				Annotations: map[string]string{
-					"migrator.nais.io/old-instance": mgr.Resolved.InstanceName,
-					"migrator.nais.io/new-instance": cfg.NewInstance.Name,
+					"migrator.nais.io/source-instance": mgr.Resolved.SourceInstanceName,
+					"migrator.nais.io/target-instance": cfg.TargetInstance.Name,
 				},
 			},
 			Spec: nais_io_v1alpha1.ApplicationSpec{
 				GCP: &nais_io_v1.GCP{
-					SqlInstances: []nais_io_v1.CloudSqlInstance{*newInstance},
+					SqlInstances: []nais_io_v1.CloudSqlInstance{*targetInstance},
 				},
 				Image: dummyAppImage,
 			},
@@ -67,48 +65,48 @@ func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 		return err
 	}
 
-	mgr.Logger.Info("Started creation of target instance", "helperApp", helperName)
+	mgr.Logger.Info("started creation of target instance", "helperApp", helperName)
 
 	return nil
 }
 
-func defineNewInstance(cfg *setup.Config, app *nais_io_v1alpha1.Application) (*nais_io_v1.CloudSqlInstance, error) {
-	oldInstance := app.Spec.GCP.SqlInstances[0]
-	newInstance := oldInstance.DeepCopy()
+func defineTargetInstance(cfg *setup.Config, app *nais_io_v1alpha1.Application) (*nais_io_v1.CloudSqlInstance, error) {
+	sourceInstance := app.Spec.GCP.SqlInstances[0]
+	targetInstance := sourceInstance.DeepCopy()
 
-	newInstance.Name = cfg.NewInstance.Name
-	newInstance.CascadingDelete = false
-	if cfg.NewInstance.Tier != "" {
-		newInstance.Tier = cfg.NewInstance.Tier
+	targetInstance.Name = cfg.TargetInstance.Name
+	targetInstance.CascadingDelete = false
+	if cfg.TargetInstance.Tier != "" {
+		targetInstance.Tier = cfg.TargetInstance.Tier
 	}
-	if cfg.NewInstance.DiskSize != 0 {
-		newInstance.DiskSize = cfg.NewInstance.DiskSize
+	if cfg.TargetInstance.DiskSize != 0 {
+		targetInstance.DiskSize = cfg.TargetInstance.DiskSize
 	}
-	if cfg.NewInstance.Type != "" {
-		newInstance.Type = nais_io_v1.CloudSqlInstanceType(cfg.NewInstance.Type)
+	if cfg.TargetInstance.Type != "" {
+		targetInstance.Type = nais_io_v1.CloudSqlInstanceType(cfg.TargetInstance.Type)
 	} else {
-		switch oldInstance.Type {
+		switch sourceInstance.Type {
 		case nais_io_v1.CloudSqlInstanceTypePostgres11:
-			newInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres12
+			targetInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres12
 		case nais_io_v1.CloudSqlInstanceTypePostgres12:
-			newInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres13
+			targetInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres13
 		case nais_io_v1.CloudSqlInstanceTypePostgres13:
-			newInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres14
+			targetInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres14
 		case nais_io_v1.CloudSqlInstanceTypePostgres14:
-			newInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres15
+			targetInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres15
 		default:
-			return nil, fmt.Errorf("no valid target type for instance of type %v", oldInstance.Type)
+			return nil, fmt.Errorf("no valid target type for instance of type %v", sourceInstance.Type)
 
 		}
 	}
 
-	return newInstance, nil
+	return targetInstance, nil
 }
 
-func PrepareOldInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
-	mgr.Logger.Info("Preparing old instance for migration")
+func PrepareSourceInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+	mgr.Logger.Info("preparing source instance for migration")
 
-	sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.InstanceName)
+	sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
 	if err != nil {
 		return err
 	}
@@ -121,7 +119,7 @@ func PrepareOldInstance(ctx context.Context, cfg *setup.Config, mgr *common_main
 		return err
 	}
 
-	mgr.Logger.Info("Old instance prepared for migration")
+	mgr.Logger.Info("source instance prepared for migration")
 	return nil
 }
 
