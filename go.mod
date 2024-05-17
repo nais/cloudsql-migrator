@@ -14,7 +14,7 @@ require (
 	github.com/GoogleCloudPlatform/k8s-config-connector v1.118.0
 	github.com/lib/pq v1.10.9
 	github.com/nais/liberator v0.0.0-20240508112139-876aae49c479
-	github.com/sethvargo/go-envconfig v1.0.1
+	github.com/sethvargo/go-envconfig v1.0.2
 	google.golang.org/api v0.181.0
 	k8s.io/apimachinery v0.30.0
 	k8s.io/client-go v0.29.0
