@@ -13,6 +13,7 @@ func SetupMigration(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 	if err != nil {
 		return err
 	}
+	// Set allowlist for source database
 
 	//createMigrationJob()
 	return nil

@@ -45,7 +45,7 @@ func main() {
 	//	os.Exit(4)
 	//}
 
-	err = instance.PrepareSourceInstance(ctx, mgr)
+	err = instance.PrepareInstances(ctx, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source instance", "error", err)
 		os.Exit(5)
@@ -55,12 +55,6 @@ func main() {
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source database", "error", err)
 		os.Exit(6)
-	}
-
-	err = instance.PrepareTargetInstance(ctx, mgr)
-	if err != nil {
-		mgr.Logger.Error("failed to prepare source instance", "error", err)
-		os.Exit(5)
 	}
 
 	err = database.PrepareTargetDatabase(ctx, cfg, mgr)

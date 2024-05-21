@@ -12,6 +12,7 @@ import (
 	"github.com/nais/liberator/pkg/namegen"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 const (
@@ -105,37 +106,64 @@ func defineTargetInstance(cfg *setup.Config, app *nais_io_v1alpha1.Application) 
 	return targetInstance, nil
 }
 
-func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error {
+func PrepareInstances(ctx context.Context, mgr *common_main.Manager) error {
 	mgr.Logger.Info("preparing source instance for migration")
 
-	sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
+	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.TargetInstanceName)
 	if err != nil {
 		return err
 	}
 
-	setFlag(sqlInstance, "cloudsql.enable_pglogical")
-	setFlag(sqlInstance, "cloudsql.logical_decoding")
+	targetIp := *targetSqlInstance.Status.PublicIpAddress
+	mgr.Resolved.TargetInstanceIp = targetIp
 
-	_, err = mgr.SqlInstanceClient.Update(ctx, sqlInstance)
+	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
 	if err != nil {
 		return err
 	}
 
+	authNetwork := v1beta1.InstanceAuthorizedNetworks{
+		Name:  &mgr.Resolved.TargetInstanceName,
+		Value: fmt.Sprintf("%s/32", targetIp),
+	}
+
+	sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
+
+	setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
+	setFlag(sourceSqlInstance, "cloudsql.logical_decoding")
+
+	_, err = mgr.SqlInstanceClient.Update(ctx, sourceSqlInstance)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(5 * time.Second)
+	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
+	if err != nil {
+		return err
+	}
+
+	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
+		mgr.Logger.Info("waiting for source instance to be ready")
+		time.Sleep(3 * time.Second)
+		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
+		if err != nil {
+			return err
+		}
+
+	}
 	mgr.Logger.Info("source instance prepared for migration")
 	return nil
 }
 
-func PrepareTargetInstance(ctx context.Context, mgr *common_main.Manager) error {
-	mgr.Logger.Info("preparing source instance for migration")
-
-	sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.TargetInstanceName)
-	if err != nil {
-		return err
+func appendAuthNetIfNotExists(sqlInstance *v1beta1.SQLInstance, authNetwork v1beta1.InstanceAuthorizedNetworks) []v1beta1.InstanceAuthorizedNetworks {
+	for _, network := range sqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks {
+		if network.Value == authNetwork.Value {
+			return sqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks
+		}
 	}
 
-	mgr.Resolved.TargetInstanceIp = *sqlInstance.Status.PublicIpAddress
-	mgr.Logger.Info("source instance prepared for migration")
-	return nil
+	return append(sqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks, authNetwork)
 }
 
 func setFlag(sqlInstance *v1beta1.SQLInstance, flagName string) {
