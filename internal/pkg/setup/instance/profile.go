@@ -15,14 +15,31 @@ func CreateConnectionProfiles(ctx context.Context, cfg *setup.Config, mgr *commo
 	cps := getDmsConnectionProfiles(cfg, mgr)
 	for i, cp := range cps {
 		profileName := fmt.Sprintf("%s-%s", i, cp.Name)
-		op, err := mgr.DBMigrationClient.CreateConnectionProfile(ctx, &clouddmspb.CreateConnectionProfileRequest{
+
+		mgr.Logger.Info("Deleting previous connection profile", "name", profileName)
+		deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
+			Name: fmt.Sprintf("projects/%s/locations/europe-north1/connectionProfiles/%s", mgr.Resolved.GcpProjectId, profileName),
+		})
+		if err != nil {
+			if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
+				return fmt.Errorf("unable to delete previous connection profile: %w", err)
+			}
+		} else {
+			err = deleteOperation.Wait(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to wait for connection profile deletion: %w", err)
+			}
+		}
+
+		mgr.Logger.Info("Creating connection profile", "name", profileName)
+		createOperation, err := mgr.DBMigrationClient.CreateConnectionProfile(ctx, &clouddmspb.CreateConnectionProfileRequest{
 			Parent:              fmt.Sprintf("projects/%s/locations/europe-north1", mgr.Resolved.GcpProjectId),
 			ConnectionProfileId: profileName,
 			ConnectionProfile:   cp,
 		})
 
 		if st, ok := status.FromError(err); ok && st.Code() == codes.AlreadyExists {
-			mgr.Logger.Info("connection profile already exists", "name", profileName)
+			mgr.Logger.Info("connection profile already exists, updating", "name", profileName)
 			continue
 		}
 
@@ -31,7 +48,7 @@ func CreateConnectionProfiles(ctx context.Context, cfg *setup.Config, mgr *commo
 			return err
 		}
 
-		_, err = op.Wait(ctx)
+		_, err = createOperation.Wait(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to wait for connection profile creation: %w", err)
 		}

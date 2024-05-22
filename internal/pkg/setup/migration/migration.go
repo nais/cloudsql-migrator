@@ -14,12 +14,18 @@ import (
 )
 
 func SetupMigration(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
-	err := instance.CreateConnectionProfiles(ctx, cfg, mgr)
+	migrationName := fmt.Sprintf("%s-%s", mgr.Resolved.SourceInstanceName, mgr.Resolved.TargetInstanceName)
+
+	err := deleteMigrationJob(ctx, migrationName, mgr)
+	if err != nil {
+	}
+
+	err = instance.CreateConnectionProfiles(ctx, cfg, mgr)
 	if err != nil {
 		return err
 	}
 
-	migrationJob, err := createMigrationJob(ctx, cfg, mgr)
+	migrationJob, err := createMigrationJob(ctx, migrationName, cfg, mgr)
 	if err != nil {
 		return err
 	}
@@ -32,6 +38,27 @@ func SetupMigration(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 	err = startMigrationJob(ctx, migrationJob, mgr)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func deleteMigrationJob(ctx context.Context, migrationName string, mgr *common_main.Manager) error {
+	mgr.Logger.Info("Deleting previous migration job", "name", migrationName)
+
+	// TODO: Delete for realz
+	op, err := mgr.DBMigrationClient.DeleteMigrationJob(ctx, &clouddmspb.DeleteMigrationJobRequest{
+		Name: migrationName,
+	})
+	if err != nil {
+		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
+			return fmt.Errorf("unable to delete previous migration job: %w", err)
+		}
+	}
+
+	err = op.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to wait for migration job deletion: %w", err)
 	}
 
 	return nil
@@ -56,11 +83,9 @@ func demoteTargetInstance(ctx context.Context, migrationJob *clouddmspb.Migratio
 	return nil
 }
 
-func createMigrationJob(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) (*clouddmspb.MigrationJob, error) {
-	name := fmt.Sprintf("%s-%s", mgr.Resolved.SourceInstanceName, mgr.Resolved.TargetInstanceName)
-
+func createMigrationJob(ctx context.Context, migrationName string, cfg *setup.Config, mgr *common_main.Manager) (*clouddmspb.MigrationJob, error) {
 	migrationJob, err := mgr.DBMigrationClient.GetMigrationJob(ctx, &clouddmspb.GetMigrationJobRequest{
-		Name: fmt.Sprintf("projects/%s/locations/europe-north1/migrationJobs/%s", mgr.Resolved.GcpProjectId, name),
+		Name: fmt.Sprintf("projects/%s/locations/europe-north1/migrationJobs/%s", mgr.Resolved.GcpProjectId, migrationName),
 	})
 	if err != nil {
 		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
@@ -75,9 +100,9 @@ func createMigrationJob(ctx context.Context, cfg *setup.Config, mgr *common_main
 
 	req := &clouddmspb.CreateMigrationJobRequest{
 		Parent:         fmt.Sprintf("projects/%s/locations/europe-north1", mgr.Resolved.GcpProjectId),
-		MigrationJobId: name,
+		MigrationJobId: migrationName,
 		MigrationJob: &clouddmspb.MigrationJob{
-			DisplayName: name,
+			DisplayName: migrationName,
 			Labels: map[string]string{
 				"app":  cfg.ApplicationName,
 				"team": cfg.Namespace,
