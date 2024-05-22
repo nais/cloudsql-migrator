@@ -1,16 +1,17 @@
 package migration
 
 import (
-	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
 	"context"
 	"fmt"
+	"time"
+
+	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"google.golang.org/api/datamigration/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"time"
 )
 
 func SetupMigration(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
@@ -48,17 +49,17 @@ func deleteMigrationJob(ctx context.Context, migrationName string, mgr *common_m
 
 	// TODO: Delete for realz
 	op, err := mgr.DBMigrationClient.DeleteMigrationJob(ctx, &clouddmspb.DeleteMigrationJobRequest{
-		Name: migrationName,
+		Name: fmt.Sprintf("projects/%s/locations/europe-north1/migrationJobs/%s", mgr.Resolved.GcpProjectId, migrationName),
 	})
 	if err != nil {
 		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
 			return fmt.Errorf("unable to delete previous migration job: %w", err)
 		}
-	}
-
-	err = op.Wait(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to wait for migration job deletion: %w", err)
+	} else {
+		err = op.Wait(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for migration job deletion: %w", err)
+		}
 	}
 
 	return nil
