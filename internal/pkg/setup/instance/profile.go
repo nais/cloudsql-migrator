@@ -31,9 +31,12 @@ func CreateConnectionProfiles(ctx context.Context, cfg *setup.Config, mgr *commo
 			return err
 		}
 
-		if op.Done() {
-			mgr.Logger.Info("connection profile created", "name", profileName)
+		_, err = op.Wait(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for connection profile creation: %w", err)
 		}
+
+		mgr.Logger.Info("connection profile created", "name", profileName)
 	}
 	return nil
 }

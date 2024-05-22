@@ -9,6 +9,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/k8s"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	naisv1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
+	"google.golang.org/api/datamigration/v1"
 	"google.golang.org/api/sqladmin/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -22,11 +23,12 @@ type Manager struct {
 
 	Resolved *resolved.Resolved
 
-	AppClient         k8s.AppClient
-	SqlInstanceClient k8s.SqlInstanceClient
-	SqlSslCertClient  k8s.SqlSslCertClient
-	SqlAdminService   *sqladmin.Service
-	DBMigrationClient *dms.DataMigrationClient
+	AppClient            k8s.AppClient
+	SqlInstanceClient    k8s.SqlInstanceClient
+	SqlSslCertClient     k8s.SqlSslCertClient
+	SqlAdminService      *sqladmin.Service
+	DatamigrationService *datamigration.Service
+	DBMigrationClient    *dms.DataMigrationClient
 }
 
 func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*Manager, error) {
@@ -42,6 +44,11 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 	sqlAdminService, err := sqladmin.NewService(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SqlAdminService: %w", err)
+	}
+
+	datamigrationService, err := datamigration.NewService(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DataMigrationService: %w", err)
 	}
 
 	dbMigrationclient, err := dms.NewDataMigrationClient(ctx)
@@ -62,13 +69,14 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 	)
 
 	return &Manager{
-		Logger:            logger,
-		Resolved:          r,
-		AppClient:         appClient,
-		SqlInstanceClient: sqlInstanceClient,
-		SqlSslCertClient:  sqlSslCertClient,
-		SqlAdminService:   sqlAdminService,
-		DBMigrationClient: dbMigrationclient,
+		Logger:               logger,
+		Resolved:             r,
+		AppClient:            appClient,
+		SqlInstanceClient:    sqlInstanceClient,
+		SqlSslCertClient:     sqlSslCertClient,
+		SqlAdminService:      sqlAdminService,
+		DatamigrationService: datamigrationService,
+		DBMigrationClient:    dbMigrationclient,
 	}, nil
 }
 

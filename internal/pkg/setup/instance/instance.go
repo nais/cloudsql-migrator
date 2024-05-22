@@ -114,8 +114,14 @@ func PrepareInstances(ctx context.Context, mgr *common_main.Manager) error {
 		return err
 	}
 
-	targetIp := *targetSqlInstance.Status.PublicIpAddress
-	mgr.Resolved.TargetInstanceIp = targetIp
+	mgr.Resolved.TargetInstanceIp = *targetSqlInstance.Status.PublicIpAddress
+
+	outgoingIp := mgr.Resolved.TargetInstanceIp
+	for _, address := range targetSqlInstance.Status.IpAddress {
+		if *address.Type == "OUTGOING" {
+			outgoingIp = *address.IpAddress
+		}
+	}
 
 	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
 	if err != nil {
@@ -124,7 +130,7 @@ func PrepareInstances(ctx context.Context, mgr *common_main.Manager) error {
 
 	authNetwork := v1beta1.InstanceAuthorizedNetworks{
 		Name:  &mgr.Resolved.TargetInstanceName,
-		Value: fmt.Sprintf("%s/32", targetIp),
+		Value: fmt.Sprintf("%s/32", outgoingIp),
 	}
 
 	sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
