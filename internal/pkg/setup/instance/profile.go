@@ -16,7 +16,7 @@ func CreateConnectionProfiles(ctx context.Context, cfg *setup.Config, mgr *commo
 	for i, cp := range cps {
 		profileName := fmt.Sprintf("%s-%s", i, cp.Name)
 
-		mgr.Logger.Info("Deleting previous connection profile", "name", profileName)
+		mgr.Logger.Info("deleting previous connection profile", "name", profileName)
 		deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
 			Name: fmt.Sprintf("projects/%s/locations/europe-north1/connectionProfiles/%s", mgr.Resolved.GcpProjectId, profileName),
 		})
@@ -31,7 +31,7 @@ func CreateConnectionProfiles(ctx context.Context, cfg *setup.Config, mgr *commo
 			}
 		}
 
-		mgr.Logger.Info("Creating connection profile", "name", profileName)
+		mgr.Logger.Info("creating connection profile", "name", profileName)
 		createOperation, err := mgr.DBMigrationClient.CreateConnectionProfile(ctx, &clouddmspb.CreateConnectionProfileRequest{
 			Parent:              fmt.Sprintf("projects/%s/locations/europe-north1", mgr.Resolved.GcpProjectId),
 			ConnectionProfileId: profileName,
@@ -66,7 +66,7 @@ func getDmsConnectionProfiles(cfg *setup.Config, mgr *common_main.Manager) map[s
 			Postgresql: &clouddmspb.PostgreSqlConnectionProfile{
 				Host:     mgr.Resolved.SourceInstanceIp,
 				Port:     config.DatabasePort,
-				Username: config.DatabaseUser,
+				Username: config.PostgresDatabaseUser,
 				Password: mgr.Resolved.SourceDbPassword,
 				Ssl: &clouddmspb.SslConfig{
 					Type:              clouddmspb.SslConfig_SERVER_CLIENT,
@@ -86,7 +86,7 @@ func getDmsConnectionProfiles(cfg *setup.Config, mgr *common_main.Manager) map[s
 			Postgresql: &clouddmspb.PostgreSqlConnectionProfile{
 				Host:     mgr.Resolved.TargetInstanceIp,
 				Port:     config.DatabasePort,
-				Username: config.DatabaseUser,
+				Username: config.PostgresDatabaseUser,
 				Password: mgr.Resolved.TargetDbPassword,
 				Ssl: &clouddmspb.SslConfig{
 					Type:              clouddmspb.SslConfig_SERVER_CLIENT,

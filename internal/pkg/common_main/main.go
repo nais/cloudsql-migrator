@@ -102,6 +102,11 @@ func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, cl
 		return err
 	}
 
+	resolved.DatabaseName, err = resolveDatabaseName(app)
+	if err != nil {
+		return err
+	}
+
 	sqlInstance, err := sqlInstanceClient.Get(ctx, resolved.SourceInstanceName)
 	if err != nil {
 		return fmt.Errorf("unable to get existing sql instance: %w", err)
@@ -127,6 +132,21 @@ func resolveInstanceName(app *naisv1alpha1.Application) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("application does not have sql instance")
+}
+
+func resolveDatabaseName(app *naisv1alpha1.Application) (string, error) {
+	spec := app.Spec
+	if spec.GCP != nil {
+		gcp := spec.GCP
+		if gcp.SqlInstances != nil && len(gcp.SqlInstances) == 1 {
+			database := gcp.SqlInstances[0].Databases[0]
+			if len(database.Name) > 0 {
+				return database.Name, nil
+			}
+			return app.ObjectMeta.Name, nil
+		}
+	}
+	return "", fmt.Errorf("application does not have sql database")
 }
 
 func newK8sClient() (kubernetes.Interface, dynamic.Interface, error) {

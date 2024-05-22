@@ -10,6 +10,7 @@ type SslCert struct {
 
 type Resolved struct {
 	GcpProjectId       string
+	DatabaseName       string
 	SourceInstanceName string
 	TargetInstanceName string
 	SourceInstanceIp   string

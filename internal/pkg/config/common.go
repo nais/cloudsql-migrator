@@ -1,10 +1,10 @@
 package config
 
 const (
-	DatabaseName   = "postgres"
-	DatabaseUser   = "postgres"
-	DatabasePort   = 5432
-	DatabaseDriver = "postgres"
+	PostgresDatabaseName = "postgres"
+	PostgresDatabaseUser = "postgres"
+	DatabasePort         = 5432
+	DatabaseDriver       = "postgres"
 )
 
 type TargetInstance struct {

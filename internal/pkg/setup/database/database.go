@@ -46,7 +46,7 @@ func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 
 func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance string, password string, resolved *string) error {
 	usersService := mgr.SqlAdminService.Users
-	user, err := usersService.Get(mgr.Resolved.GcpProjectId, instance, config.DatabaseUser).Context(ctx).Do()
+	user, err := usersService.Get(mgr.Resolved.GcpProjectId, instance, config.PostgresDatabaseUser).Context(ctx).Do()
 	if err != nil {
 		return err
 	}
@@ -67,41 +67,42 @@ func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance
 func installExtension(ctx context.Context, mgr *common_main.Manager) error {
 	mgr.Logger.Info("preparing database for migration")
 
-	connection := fmt.Sprint(
-		" host="+mgr.Resolved.SourceInstanceIp,
-		" port="+strconv.Itoa(config.DatabasePort),
-		" user="+config.DatabaseUser,
-		" password="+mgr.Resolved.SourceDbPassword,
-		" dbname="+config.DatabaseName,
-		" sslmode=verify-ca",
-		" sslrootcert="+instance.RootCertPath,
-		" sslkey="+instance.KeyPath,
-		" sslcert="+instance.CertPath,
-	)
+	for _, dbName := range []string{config.PostgresDatabaseName, mgr.Resolved.DatabaseName} {
+		connection := fmt.Sprint(
+			" host="+mgr.Resolved.SourceInstanceIp,
+			" port="+strconv.Itoa(config.DatabasePort),
+			" user="+config.PostgresDatabaseUser,
+			" password="+mgr.Resolved.SourceDbPassword,
+			" dbname="+dbName,
+			" sslmode=verify-ca",
+			" sslrootcert="+instance.RootCertPath,
+			" sslkey="+instance.KeyPath,
+			" sslcert="+instance.CertPath,
+		)
 
-	dbConn, err := sql.Open(config.DatabaseDriver, connection)
-	if err != nil {
-		return err
+		dbConn, err := sql.Open(config.DatabaseDriver, connection)
+		if err != nil {
+			return err
+		}
+		defer dbConn.Close()
+
+		err = dbConn.Ping()
+		if err != nil {
+			mgr.Logger.Error("failed to connect to database", "error", err)
+			return err
+		}
+
+		_, err = dbConn.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pglogical; "+
+			"GRANT USAGE on SCHEMA pglogical to \"postgres\";"+
+			"GRANT SELECT on ALL TABLES in SCHEMA pglogical to \"postgres\";"+
+			"GRANT SELECT on ALL SEQUENCES in SCHEMA pglogical to \"postgres\";"+
+			"GRANT USAGE on SCHEMA public to \"postgres\";"+
+			"GRANT SELECT on ALL TABLES in SCHEMA public to \"postgres\";"+
+			"GRANT SELECT on ALL SEQUENCES in SCHEMA public to \"postgres\";"+
+			"ALTER USER \"postgres\" with REPLICATION;")
+		if err != nil {
+			return err
+		}
 	}
-	defer dbConn.Close()
-
-	err = dbConn.Ping()
-	if err != nil {
-		mgr.Logger.Error("failed to connect to database", "error", err)
-		return err
-	}
-
-	_, err = dbConn.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pglogical; "+
-		"GRANT USAGE on SCHEMA pglogical to \"postgres\";"+
-		"GRANT SELECT on ALL TABLES in SCHEMA pglogical to \"postgres\";"+
-		"GRANT SELECT on ALL SEQUENCES in SCHEMA pglogical to \"postgres\";"+
-		"GRANT USAGE on SCHEMA public to \"postgres\";"+
-		"GRANT SELECT on ALL TABLES in SCHEMA public to \"postgres\";"+
-		"GRANT SELECT on ALL SEQUENCES in SCHEMA public to \"postgres\";"+
-		"ALTER USER \"postgres\" with REPLICATION;")
-	if err != nil {
-		return err
-	}
-
 	return nil
 }

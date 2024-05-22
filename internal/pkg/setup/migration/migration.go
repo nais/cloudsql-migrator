@@ -45,9 +45,8 @@ func SetupMigration(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 }
 
 func deleteMigrationJob(ctx context.Context, migrationName string, mgr *common_main.Manager) error {
-	mgr.Logger.Info("Deleting previous migration job", "name", migrationName)
+	mgr.Logger.Info("deleting previous migration job", "name", migrationName)
 
-	// TODO: Delete for realz
 	op, err := mgr.DBMigrationClient.DeleteMigrationJob(ctx, &clouddmspb.DeleteMigrationJobRequest{
 		Name: fmt.Sprintf("projects/%s/locations/europe-north1/migrationJobs/%s", mgr.Resolved.GcpProjectId, migrationName),
 	})
@@ -66,7 +65,7 @@ func deleteMigrationJob(ctx context.Context, migrationName string, mgr *common_m
 }
 
 func demoteTargetInstance(ctx context.Context, migrationJob *clouddmspb.MigrationJob, mgr *common_main.Manager) error {
-	mgr.Logger.Info("Demoting target instance")
+	mgr.Logger.Info("demoting target instance")
 
 	op, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.DemoteDestination(migrationJob.Name, &datamigration.DemoteDestinationRequest{}).Context(ctx).Do()
 	if err != nil {
@@ -132,7 +131,7 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *setup.Co
 
 func startMigrationJob(ctx context.Context, migrationJob *clouddmspb.MigrationJob, mgr *common_main.Manager) error {
 	logger := mgr.Logger.With("migrationJob", migrationJob.Name)
-	logger.Info("Starting migration job")
+	logger.Info("starting migration job")
 	startOperation, err := mgr.DBMigrationClient.StartMigrationJob(ctx, &clouddmspb.StartMigrationJobRequest{
 		Name: migrationJob.Name,
 	})
