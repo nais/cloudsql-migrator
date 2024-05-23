@@ -2,22 +2,24 @@ package promote
 
 import (
 	"context"
-	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	autoscaling "k8s.io/client-go/applyconfigurations/autoscaling/v1"
-	"k8s.io/utils/ptr"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	autoscaling_v1 "k8s.io/client-go/applyconfigurations/autoscaling/v1"
 )
 
 func Promote(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager) error {
-	migrationName := fmt.Sprintf("%s-%s", mgr.Resolved.Source.Name, mgr.Resolved.Target.Name)
+	migrationName, err := mgr.Resolved.MigrationName()
+	if err != nil {
+		return err
+	}
 
 	// Scale down application
-	client := mgr.K8sClient
-	_, err := client.AppsV1().Deployments(cfg.Namespace).ApplyScale(ctx, cfg.ApplicationName, &autoscaling.ScaleApplyConfiguration{
-		Spec: &autoscaling.ScaleSpecApplyConfiguration{Replicas: ptr.To(int32(0))},
-	}, v1.ApplyOptions{})
+	scaleApplyConfiguration := autoscaling_v1.Scale().
+		WithName(cfg.ApplicationName).
+		WithNamespace(cfg.Namespace).
+		WithSpec(autoscaling_v1.ScaleSpec().WithReplicas(0))
+	_, err = mgr.K8sClient.AppsV1().Deployments(cfg.Namespace).ApplyScale(ctx, cfg.ApplicationName, scaleApplyConfiguration, meta_v1.ApplyOptions{})
 	if err != nil {
 		return err
 	}

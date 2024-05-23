@@ -39,6 +39,13 @@ func (r *Resolved) GcpComponentURI(kind, name string) string {
 	return fmt.Sprintf("%s/%s/%s", r.GcpParentURI(), kind, name)
 }
 
+func (r *Resolved) MigrationName() (string, error) {
+	if len(r.Source.Name) == 0 || len(r.Target.Name) == 0 {
+		return "", fmt.Errorf("source and target must be resolved")
+	}
+	return fmt.Sprintf("%s-%s", r.Source.Name, r.Target.Name), nil
+}
+
 func (r *Resolved) ResolveSourceAppPassword(secret *v1.Secret) error {
 	for key, bytes := range secret.Data {
 		if strings.HasSuffix(key, "_PASSWORD") {

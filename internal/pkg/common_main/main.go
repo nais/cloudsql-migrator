@@ -103,6 +103,7 @@ func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, cl
 	if err != nil {
 		return err
 	}
+	r.Target.Name = cfg.TargetInstance.Name
 
 	err = r.ResolveDatabaseName(app)
 	if err != nil {
