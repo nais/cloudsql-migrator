@@ -9,7 +9,7 @@ import (
 )
 
 func CreateBackup(ctx context.Context, mgr *common_main.Manager) error {
-	mgr.Logger.Info("Creating backup")
+	mgr.Logger.Info("creating backup")
 
 	backupRunsService := mgr.SqlAdminService.BackupRuns
 	operationsService := mgr.SqlAdminService.Operations
@@ -33,7 +33,7 @@ func CreateBackup(ctx context.Context, mgr *common_main.Manager) error {
 		}
 	}
 
-	mgr.Logger.Info("Backup creation complete")
+	mgr.Logger.Info("backup creation complete")
 
 	return nil
 }

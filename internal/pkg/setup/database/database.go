@@ -112,7 +112,7 @@ func installExtension(ctx context.Context, mgr *common_main.Manager) error {
 			return err
 		}
 
-		logger.Info("Installing extension and granting permissions to postgres user", "database", dbInfo.DatabaseName)
+		logger.Info("installing extension and granting permissions to postgres user", "database", dbInfo.DatabaseName)
 
 		_, err = dbConn.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pglogical; "+
 			"GRANT USAGE on SCHEMA pglogical to \"postgres\";"+
