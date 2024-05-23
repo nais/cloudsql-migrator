@@ -11,11 +11,13 @@ import (
 	naisv1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"google.golang.org/api/datamigration/v1"
 	"google.golang.org/api/sqladmin/v1"
+	core_v1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"log/slog"
+	"strings"
 )
 
 type Manager struct {
@@ -107,6 +109,17 @@ func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, cl
 		return err
 	}
 
+	resolved.SourceAppUsername = resolveAppUsername(app)
+
+	secret, err := clientset.CoreV1().Secrets(cfg.Namespace).Get(ctx, "google-sql-"+cfg.ApplicationName, v1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	resolved.SourceAppPassword, err = resolveAppPassword(secret)
+	if err != nil {
+		return err
+	}
+
 	sqlInstance, err := sqlInstanceClient.Get(ctx, resolved.SourceInstanceName)
 	if err != nil {
 		return fmt.Errorf("unable to get existing sql instance: %w", err)
@@ -117,6 +130,19 @@ func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, cl
 	resolved.SourceInstanceIp = *sqlInstance.Status.PublicIpAddress
 
 	return nil
+}
+
+func resolveAppPassword(secret *core_v1.Secret) (string, error) {
+	for key, bytes := range secret.Data {
+		if strings.HasSuffix(key, "_PASSWORD") {
+			return string(bytes), nil
+		}
+	}
+	return "", fmt.Errorf("unable to find password in secret %s", secret.Name)
+}
+
+func resolveAppUsername(app *naisv1alpha1.Application) string {
+	return app.ObjectMeta.Name
 }
 
 func resolveInstanceName(app *naisv1alpha1.Application) (string, error) {

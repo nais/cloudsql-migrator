@@ -67,7 +67,7 @@ func getDmsConnectionProfiles(cfg *setup.Config, mgr *common_main.Manager) map[s
 				Host:     mgr.Resolved.SourceInstanceIp,
 				Port:     config.DatabasePort,
 				Username: config.PostgresDatabaseUser,
-				Password: mgr.Resolved.SourceDbPassword,
+				Password: mgr.Resolved.SourcePostgresUserPassword,
 				Ssl: &clouddmspb.SslConfig{
 					Type:              clouddmspb.SslConfig_SERVER_CLIENT,
 					ClientKey:         mgr.Resolved.SourceSslCert.SslClientKey,
@@ -87,7 +87,7 @@ func getDmsConnectionProfiles(cfg *setup.Config, mgr *common_main.Manager) map[s
 				Host:     mgr.Resolved.TargetInstanceIp,
 				Port:     config.DatabasePort,
 				Username: config.PostgresDatabaseUser,
-				Password: mgr.Resolved.TargetDbPassword,
+				Password: mgr.Resolved.TargetPostgresUserPassword,
 				Ssl: &clouddmspb.SslConfig{
 					Type:              clouddmspb.SslConfig_SERVER_CLIENT,
 					ClientKey:         mgr.Resolved.TargetSslCert.SslClientKey,

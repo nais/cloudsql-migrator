@@ -14,7 +14,7 @@ import (
 
 func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
 	databasePassword := rand.String(14)
-	err := setDatabasePassword(ctx, mgr, mgr.Resolved.SourceInstanceName, databasePassword, &mgr.Resolved.SourceDbPassword)
+	err := setDatabasePassword(ctx, mgr, mgr.Resolved.SourceInstanceName, databasePassword, &mgr.Resolved.SourcePostgresUserPassword)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 
 func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
 	databasePassword := rand.String(14)
-	err := setDatabasePassword(ctx, mgr, cfg.CommonConfig.TargetInstance.Name, databasePassword, &mgr.Resolved.TargetDbPassword)
+	err := setDatabasePassword(ctx, mgr, cfg.CommonConfig.TargetInstance.Name, databasePassword, &mgr.Resolved.TargetPostgresUserPassword)
 	if err != nil {
 		return err
 	}
@@ -67,13 +67,30 @@ func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance
 func installExtension(ctx context.Context, mgr *common_main.Manager) error {
 	mgr.Logger.Info("preparing database for migration")
 
-	for _, dbName := range []string{config.PostgresDatabaseName, mgr.Resolved.DatabaseName} {
+	dbInfos := []struct {
+		DatabaseName string
+		Username     string
+		Password     string
+	}{
+		{
+			DatabaseName: config.PostgresDatabaseName,
+			Username:     config.PostgresDatabaseUser,
+			Password:     mgr.Resolved.SourcePostgresUserPassword,
+		},
+		{
+			DatabaseName: mgr.Resolved.DatabaseName,
+			Username:     mgr.Resolved.SourceAppUsername,
+			Password:     mgr.Resolved.SourceAppPassword,
+		},
+	}
+
+	for _, dbInfo := range dbInfos {
 		connection := fmt.Sprint(
 			" host="+mgr.Resolved.SourceInstanceIp,
 			" port="+strconv.Itoa(config.DatabasePort),
-			" user="+config.PostgresDatabaseUser,
-			" password="+mgr.Resolved.SourceDbPassword,
-			" dbname="+dbName,
+			" user="+dbInfo.Username,
+			" password="+dbInfo.Password,
+			" dbname="+dbInfo.DatabaseName,
 			" sslmode=verify-ca",
 			" sslrootcert="+instance.RootCertPath,
 			" sslkey="+instance.KeyPath,
@@ -92,6 +109,8 @@ func installExtension(ctx context.Context, mgr *common_main.Manager) error {
 			return err
 		}
 
+		mgr.Logger.Info("Granting permissions to postgres user", "database", dbInfo.DatabaseName)
+
 		_, err = dbConn.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pglogical; "+
 			"GRANT USAGE on SCHEMA pglogical to \"postgres\";"+
 			"GRANT SELECT on ALL TABLES in SCHEMA pglogical to \"postgres\";"+
@@ -104,5 +123,6 @@ func installExtension(ctx context.Context, mgr *common_main.Manager) error {
 			return err
 		}
 	}
+
 	return nil
 }
