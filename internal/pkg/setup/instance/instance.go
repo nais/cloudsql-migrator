@@ -114,9 +114,20 @@ func defineTargetInstance(cfg *setup.Config, app *nais_io_v1alpha1.Application) 
 func PrepareInstances(ctx context.Context, mgr *common_main.Manager) error {
 	mgr.Logger.Info("preparing source instance for migration")
 
-	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.TargetInstanceName)
-	if err != nil {
-		return err
+	getInstanceCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	defer cancel()
+
+	var targetSqlInstance *v1beta1.SQLInstance
+	var err error
+	for targetSqlInstance == nil {
+		mgr.Logger.Info("waiting for target instance to be ready")
+		time.Sleep(5 * time.Second)
+		targetSqlInstance, err = mgr.SqlInstanceClient.Get(getInstanceCtx, mgr.Resolved.TargetInstanceName)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return err
+			}
+		}
 	}
 
 	mgr.Resolved.TargetInstanceIp = *targetSqlInstance.Status.PublicIpAddress
