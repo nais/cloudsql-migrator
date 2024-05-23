@@ -52,10 +52,10 @@ func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance
 	if err != nil {
 		return err
 	}
+
 	user.Password = password
 
-	// Using insert to update the password, as update doesn't work as it should
-	_, err = usersService.Insert(mgr.Resolved.GcpProjectId, instance, user).Context(ctx).Do()
+	_, err = usersService.Update(mgr.Resolved.GcpProjectId, instance, user).Name(user.Name).Host(user.Host).Context(ctx).Do()
 	if err != nil {
 		mgr.Logger.Error("failed to update Cloud SQL user password", "error", err)
 		return err
