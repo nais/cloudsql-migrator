@@ -12,6 +12,7 @@ import (
 	"github.com/nais/liberator/pkg/namegen"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"time"
 )
 
@@ -55,6 +56,10 @@ func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 				},
 			},
 			Spec: nais_io_v1alpha1.ApplicationSpec{
+				Replicas: &nais_io_v1.Replicas{
+					Min: ptr.To(1),
+					Max: ptr.To(1),
+				},
 				GCP: &nais_io_v1.GCP{
 					SqlInstances: []nais_io_v1.CloudSqlInstance{*targetInstance},
 				},
