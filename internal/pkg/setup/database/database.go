@@ -10,6 +10,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"strconv"
+	"time"
 )
 
 func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
@@ -55,10 +56,19 @@ func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance
 
 	user.Password = password
 
-	_, err = usersService.Update(mgr.Resolved.GcpProjectId, instance, user).Name(user.Name).Host(user.Host).Context(ctx).Do()
+	op, err := usersService.Update(mgr.Resolved.GcpProjectId, instance, user).Name(user.Name).Host(user.Host).Context(ctx).Do()
 	if err != nil {
 		mgr.Logger.Error("failed to update Cloud SQL user password", "error", err)
 		return err
+	}
+
+	operationsService := mgr.SqlAdminService.Operations
+	for op.Status != "DONE" {
+		time.Sleep(1 * time.Second)
+		op, err = operationsService.Get(mgr.Resolved.GcpProjectId, op.Name).Context(ctx).Do()
+		if err != nil {
+			return fmt.Errorf("failed to get update operation status: %w", err)
+		}
 	}
 
 	*resolved = password
