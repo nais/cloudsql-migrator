@@ -89,7 +89,7 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *setup.Co
 	})
 	if err != nil {
 		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
-			return nil, err
+			return nil, fmt.Errorf("unable to get any existing migration job: %w", err)
 		}
 	}
 
@@ -116,17 +116,16 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *setup.Co
 	}
 	createOperation, err := mgr.DBMigrationClient.CreateMigrationJob(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create new migration job: %w", err)
 	}
 
 	migrationJob, err = createOperation.Wait(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed waiting for migration job creation: %w", err)
 	}
 
 	mgr.Logger.Info("migration job created", "name", migrationJob.Name)
-	return migrationJob, err
-
+	return migrationJob, nil
 }
 
 func startMigrationJob(ctx context.Context, migrationJob *clouddmspb.MigrationJob, mgr *common_main.Manager) error {
@@ -136,13 +135,13 @@ func startMigrationJob(ctx context.Context, migrationJob *clouddmspb.MigrationJo
 		Name: migrationJob.Name,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start migration job: %w", err)
 	}
 
 	logger.Info("waiting for migration job to start")
 	migrationJob, err = startOperation.Wait(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed waiting for migration job to start: %w", err)
 	}
 
 	logger.Info("migration job started")
