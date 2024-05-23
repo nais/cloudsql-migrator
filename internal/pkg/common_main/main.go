@@ -29,6 +29,7 @@ type Manager struct {
 	SqlAdminService      *sqladmin.Service
 	DatamigrationService *datamigration.Service
 	DBMigrationClient    *dms.DataMigrationClient
+	K8sClient            kubernetes.Interface
 }
 
 func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*Manager, error) {
@@ -77,6 +78,7 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 		SqlAdminService:      sqlAdminService,
 		DatamigrationService: datamigrationService,
 		DBMigrationClient:    dbMigrationclient,
+		K8sClient:            clientset,
 	}, nil
 }
 
