@@ -18,7 +18,7 @@ func CreateConnectionProfiles(ctx context.Context, cfg *setup.Config, mgr *commo
 
 		mgr.Logger.Info("deleting previous connection profile", "name", profileName)
 		deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
-			Name: fmt.Sprintf("projects/%s/locations/europe-north1/connectionProfiles/%s", mgr.Resolved.GcpProjectId, profileName),
+			Name: mgr.Resolved.GcpComponentURI("connectionProfiles", profileName),
 		})
 		if err != nil {
 			if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
@@ -33,7 +33,7 @@ func CreateConnectionProfiles(ctx context.Context, cfg *setup.Config, mgr *commo
 
 		mgr.Logger.Info("creating connection profile", "name", profileName)
 		createOperation, err := mgr.DBMigrationClient.CreateConnectionProfile(ctx, &clouddmspb.CreateConnectionProfileRequest{
-			Parent:              fmt.Sprintf("projects/%s/locations/europe-north1", mgr.Resolved.GcpProjectId),
+			Parent:              mgr.Resolved.GcpParentURI(),
 			ConnectionProfileId: profileName,
 			ConnectionProfile:   cp,
 		})

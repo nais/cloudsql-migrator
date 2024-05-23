@@ -48,7 +48,7 @@ func deleteMigrationJob(ctx context.Context, migrationName string, mgr *common_m
 	mgr.Logger.Info("deleting previous migration job", "name", migrationName)
 
 	op, err := mgr.DBMigrationClient.DeleteMigrationJob(ctx, &clouddmspb.DeleteMigrationJobRequest{
-		Name: fmt.Sprintf("projects/%s/locations/europe-north1/migrationJobs/%s", mgr.Resolved.GcpProjectId, migrationName),
+		Name: mgr.Resolved.GcpComponentURI("migrationJobs", migrationName),
 	})
 	if err != nil {
 		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
@@ -86,7 +86,7 @@ func demoteTargetInstance(ctx context.Context, migrationJob *clouddmspb.Migratio
 
 func createMigrationJob(ctx context.Context, migrationName string, cfg *setup.Config, mgr *common_main.Manager) (*clouddmspb.MigrationJob, error) {
 	migrationJob, err := mgr.DBMigrationClient.GetMigrationJob(ctx, &clouddmspb.GetMigrationJobRequest{
-		Name: fmt.Sprintf("projects/%s/locations/europe-north1/migrationJobs/%s", mgr.Resolved.GcpProjectId, migrationName),
+		Name: mgr.Resolved.GcpComponentURI("migrationJobs", migrationName),
 	})
 	if err != nil {
 		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
@@ -100,7 +100,7 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *setup.Co
 	}
 
 	req := &clouddmspb.CreateMigrationJobRequest{
-		Parent:         fmt.Sprintf("projects/%s/locations/europe-north1", mgr.Resolved.GcpProjectId),
+		Parent:         mgr.Resolved.GcpParentURI(),
 		MigrationJobId: migrationName,
 		MigrationJob: &clouddmspb.MigrationJob{
 			DisplayName: migrationName,
@@ -109,8 +109,8 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *setup.Co
 				"team": cfg.Namespace,
 			},
 			Type:         clouddmspb.MigrationJob_CONTINUOUS,
-			Source:       fmt.Sprintf("projects/%s/locations/europe-north1/connectionProfiles/source-%s", mgr.Resolved.GcpProjectId, cfg.ApplicationName),
-			Destination:  fmt.Sprintf("projects/%s/locations/europe-north1/connectionProfiles/target-%s", mgr.Resolved.GcpProjectId, cfg.ApplicationName),
+			Source:       mgr.Resolved.GcpComponentURI("connectionProfiles", fmt.Sprintf("source-%s", cfg.ApplicationName)),
+			Destination:  mgr.Resolved.GcpComponentURI("connectionProfiles", fmt.Sprintf("target-%s", cfg.ApplicationName)),
 			Connectivity: &clouddmspb.MigrationJob_StaticIpConnectivity{},
 		},
 		RequestId: "",
