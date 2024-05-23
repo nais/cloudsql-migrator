@@ -45,6 +45,8 @@ func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 }
 
 func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance string, password string, resolved *string) error {
+	mgr.Logger.Info("updating Cloud SQL user password", "instance", instance)
+
 	usersService := mgr.SqlAdminService.Users
 	user, err := usersService.Get(mgr.Resolved.GcpProjectId, instance, config.PostgresDatabaseUser).Context(ctx).Do()
 	if err != nil {
@@ -65,7 +67,8 @@ func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance
 }
 
 func installExtension(ctx context.Context, mgr *common_main.Manager) error {
-	mgr.Logger.Info("preparing database for migration")
+	logger := mgr.Logger.With("instance", mgr.Resolved.SourceInstanceName)
+	logger.Info("installing pglogical extension and adding grants")
 
 	dbInfos := []struct {
 		DatabaseName string
@@ -105,11 +108,11 @@ func installExtension(ctx context.Context, mgr *common_main.Manager) error {
 
 		err = dbConn.Ping()
 		if err != nil {
-			mgr.Logger.Error("failed to connect to database", "error", err)
+			logger.Error("failed to connect to database", "error", err)
 			return err
 		}
 
-		mgr.Logger.Info("Granting permissions to postgres user", "database", dbInfo.DatabaseName)
+		logger.Info("Installing extension and granting permissions to postgres user", "database", dbInfo.DatabaseName)
 
 		_, err = dbConn.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pglogical; "+
 			"GRANT USAGE on SCHEMA pglogical to \"postgres\";"+

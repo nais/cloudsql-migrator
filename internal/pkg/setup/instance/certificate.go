@@ -27,6 +27,8 @@ func CreateSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Mana
 		return err
 	}
 
+	logger := mgr.Logger.With("instance", instance, "certName", helperName)
+
 	sqlSslCert, err := mgr.SqlSslCertClient.Get(ctx, helperName)
 	if errors.IsNotFound(err) {
 		sqlSslCert, err = mgr.SqlSslCertClient.Create(ctx, &v1beta1.SQLSSLCert{
@@ -63,7 +65,7 @@ func CreateSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Mana
 		if err != nil {
 			return err
 		}
-		mgr.Logger.Info("Waiting for SQLSSLCert to be ready")
+		logger.Info("Waiting for SQLSSLCert to be ready")
 	}
 
 	sslCert.SslCaCert = *sqlSslCert.Status.ServerCaCert
@@ -74,7 +76,7 @@ func CreateSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Mana
 	if err != nil {
 		return err
 	}
-	mgr.Logger.Info(fmt.Sprintf("ssl certificate for %s created successfully", instance))
+	logger.Info("ssl certificate created successfully")
 
 	return nil
 }

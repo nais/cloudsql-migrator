@@ -39,13 +39,13 @@ func main() {
 		os.Exit(3)
 	}
 
-	//err = instance.CreateBackup(ctx, mgr)
-	//if err != nil {
-	//	mgr.Logger.Error("Failed to create backup", "error", err)
-	//	os.Exit(4)
-	//}
+	err = instance.CreateBackup(ctx, mgr)
+	if err != nil {
+		mgr.Logger.Error("Failed to create backup", "error", err)
+		os.Exit(4)
+	}
 
-	err = instance.PrepareInstances(ctx, mgr)
+	err = instance.PrepareSourceInstance(ctx, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source instance", "error", err)
 		os.Exit(5)

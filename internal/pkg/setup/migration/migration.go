@@ -74,6 +74,7 @@ func demoteTargetInstance(ctx context.Context, migrationJob *clouddmspb.Migratio
 
 	for !op.Done {
 		time.Sleep(1 * time.Second)
+		mgr.Logger.Info("waiting for demote operation to complete")
 		op, err = mgr.DatamigrationService.Projects.Locations.Operations.Get(op.Name).Context(ctx).Do()
 		if err != nil {
 			return fmt.Errorf("failed to get demote operation status: %w", err)
@@ -114,6 +115,7 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *setup.Co
 		},
 		RequestId: "",
 	}
+	mgr.Logger.Info("creating new migration job", "name", migrationName)
 	createOperation, err := mgr.DBMigrationClient.CreateMigrationJob(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create new migration job: %w", err)

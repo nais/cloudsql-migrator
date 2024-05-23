@@ -111,9 +111,7 @@ func defineTargetInstance(cfg *setup.Config, app *nais_io_v1alpha1.Application) 
 	return targetInstance, nil
 }
 
-func PrepareInstances(ctx context.Context, mgr *common_main.Manager) error {
-	mgr.Logger.Info("preparing source instance for migration")
-
+func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error {
 	getInstanceCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 
@@ -138,6 +136,8 @@ func PrepareInstances(ctx context.Context, mgr *common_main.Manager) error {
 			outgoingIp = *address.IpAddress
 		}
 	}
+
+	mgr.Logger.Info("preparing source instance for migration")
 
 	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
 	if err != nil {
