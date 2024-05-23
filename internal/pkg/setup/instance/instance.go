@@ -117,7 +117,7 @@ func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error 
 
 	var targetSqlInstance *v1beta1.SQLInstance
 	var err error
-	for targetSqlInstance == nil {
+	for targetSqlInstance == nil || targetSqlInstance.Status.PublicIpAddress == nil {
 		mgr.Logger.Info("waiting for target instance to be ready")
 		time.Sleep(5 * time.Second)
 		targetSqlInstance, err = mgr.SqlInstanceClient.Get(getInstanceCtx, mgr.Resolved.Target.Name)
