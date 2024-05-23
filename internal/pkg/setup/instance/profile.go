@@ -1,35 +1,38 @@
 package instance
 
 import (
+	clouddms "cloud.google.com/go/clouddms/apiv1"
 	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
 	"context"
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
+	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 func CreateConnectionProfiles(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
 	cps := getDmsConnectionProfiles(cfg, mgr)
+
+	err := deleteOldConnectionProfiles(ctx, cps, mgr)
+	if err != nil {
+		return err
+	}
+
+	err = createConnectionProfiles(ctx, cps, mgr)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb.ConnectionProfile, mgr *common_main.Manager) error {
+	createOperations := make([]*clouddms.CreateConnectionProfileOperation, 0, 2)
 	for i, cp := range cps {
 		profileName := fmt.Sprintf("%s-%s", i, cp.Name)
-
-		mgr.Logger.Info("deleting previous connection profile", "name", profileName)
-		deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
-			Name: mgr.Resolved.GcpComponentURI("connectionProfiles", profileName),
-		})
-		if err != nil {
-			if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
-				return fmt.Errorf("unable to delete previous connection profile: %w", err)
-			}
-		} else {
-			err = deleteOperation.Wait(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to wait for connection profile deletion: %w", err)
-			}
-		}
 
 		mgr.Logger.Info("creating connection profile", "name", profileName)
 		createOperation, err := mgr.DBMigrationClient.CreateConnectionProfile(ctx, &clouddmspb.CreateConnectionProfileRequest{
@@ -48,58 +51,73 @@ func CreateConnectionProfiles(ctx context.Context, cfg *setup.Config, mgr *commo
 			return err
 		}
 
-		_, err = createOperation.Wait(ctx)
+		createOperations = append(createOperations, createOperation)
+	}
+
+	for _, createOperation := range createOperations {
+		cp, err := createOperation.Wait(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to wait for connection profile creation: %w", err)
 		}
+		mgr.Logger.Info("connection profile created", "name", cp.Name)
+	}
+	return nil
+}
 
-		mgr.Logger.Info("connection profile created", "name", profileName)
+func deleteOldConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb.ConnectionProfile, mgr *common_main.Manager) error {
+	deleteOperations := make([]*clouddms.DeleteConnectionProfileOperation, 0, 2)
+	for i, cp := range cps {
+		profileName := fmt.Sprintf("%s-%s", i, cp.Name)
+
+		mgr.Logger.Info("deleting previous connection profile", "name", profileName)
+		deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
+			Name: mgr.Resolved.GcpComponentURI("connectionProfiles", profileName),
+		})
+		if err != nil {
+			if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
+				return fmt.Errorf("unable to delete previous connection profile: %w", err)
+			}
+		} else {
+			deleteOperations = append(deleteOperations, deleteOperation)
+		}
+	}
+
+	for _, deleteOperation := range deleteOperations {
+		err := deleteOperation.Wait(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for connection profile deletion: %w", err)
+		}
 	}
 	return nil
 }
 
 func getDmsConnectionProfiles(cfg *setup.Config, mgr *common_main.Manager) map[string]*clouddmspb.ConnectionProfile {
 	cps := make(map[string]*clouddmspb.ConnectionProfile, 2)
-	cps["source"] = &clouddmspb.ConnectionProfile{
-		Name: cfg.ApplicationName,
-		ConnectionProfile: &clouddmspb.ConnectionProfile_Postgresql{
-			Postgresql: &clouddmspb.PostgreSqlConnectionProfile{
-				Host:     mgr.Resolved.Source.Ip,
-				Port:     config.DatabasePort,
-				Username: config.PostgresDatabaseUser,
-				Password: mgr.Resolved.Source.PostgresPassword,
-				Ssl: &clouddmspb.SslConfig{
-					Type:              clouddmspb.SslConfig_SERVER_CLIENT,
-					ClientKey:         mgr.Resolved.Source.SslCert.SslClientKey,
-					ClientCertificate: mgr.Resolved.Source.SslCert.SslClientCert,
-					CaCertificate:     mgr.Resolved.Source.SslCert.SslCaCert,
-				},
-				CloudSqlId:   mgr.Resolved.Source.Name,
-				Connectivity: &clouddmspb.PostgreSqlConnectionProfile_StaticIpConnectivity{},
-			},
-		},
-		Provider: clouddmspb.DatabaseProvider_CLOUDSQL,
-	}
-	cps["target"] = &clouddmspb.ConnectionProfile{
-		Name: cfg.ApplicationName,
-		ConnectionProfile: &clouddmspb.ConnectionProfile_Postgresql{
-			Postgresql: &clouddmspb.PostgreSqlConnectionProfile{
-				Host:     mgr.Resolved.Target.Ip,
-				Port:     config.DatabasePort,
-				Username: config.PostgresDatabaseUser,
-				Password: mgr.Resolved.Target.PostgresPassword,
-				Ssl: &clouddmspb.SslConfig{
-					Type:              clouddmspb.SslConfig_SERVER_CLIENT,
-					ClientKey:         mgr.Resolved.Target.SslCert.SslClientKey,
-					ClientCertificate: mgr.Resolved.Target.SslCert.SslClientCert,
-					CaCertificate:     mgr.Resolved.Target.SslCert.SslCaCert,
-				},
-				CloudSqlId:   mgr.Resolved.Target.Name,
-				Connectivity: &clouddmspb.PostgreSqlConnectionProfile_StaticIpConnectivity{},
-			},
-		},
-		Provider: clouddmspb.DatabaseProvider_CLOUDSQL,
-	}
+	cps["source"] = connectionProfile(cfg, mgr.Resolved.Source)
+	cps["target"] = connectionProfile(cfg, mgr.Resolved.Target)
 
 	return cps
+}
+
+func connectionProfile(cfg *setup.Config, instance resolved.Instance) *clouddmspb.ConnectionProfile {
+	return &clouddmspb.ConnectionProfile{
+		Name: cfg.ApplicationName,
+		ConnectionProfile: &clouddmspb.ConnectionProfile_Postgresql{
+			Postgresql: &clouddmspb.PostgreSqlConnectionProfile{
+				Host:     instance.Ip,
+				Port:     config.DatabasePort,
+				Username: config.PostgresDatabaseUser,
+				Password: instance.PostgresPassword,
+				Ssl: &clouddmspb.SslConfig{
+					Type:              clouddmspb.SslConfig_SERVER_CLIENT,
+					ClientKey:         instance.SslCert.SslClientKey,
+					ClientCertificate: instance.SslCert.SslClientCert,
+					CaCertificate:     instance.SslCert.SslCaCert,
+				},
+				CloudSqlId:   instance.Name,
+				Connectivity: &clouddmspb.PostgreSqlConnectionProfile_StaticIpConnectivity{},
+			},
+		},
+		Provider: clouddmspb.DatabaseProvider_CLOUDSQL,
+	}
 }
