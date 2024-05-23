@@ -8,17 +8,18 @@ type SslCert struct {
 	SslCaCert     string
 }
 
+type Instance struct {
+	Name             string
+	Ip               string
+	AppUsername      string
+	AppPassword      string
+	PostgresPassword string
+	SslCert          SslCert
+}
+
 type Resolved struct {
-	GcpProjectId               string
-	DatabaseName               string
-	SourceInstanceName         string
-	TargetInstanceName         string
-	SourceInstanceIp           string
-	TargetInstanceIp           string
-	SourceAppPassword          string
-	SourceAppUsername          string
-	SourcePostgresUserPassword string
-	TargetPostgresUserPassword string
-	SourceSslCert              SslCert
-	TargetSslCert              SslCert
+	GcpProjectId string
+	DatabaseName string
+	Source       Instance
+	Target       Instance
 }

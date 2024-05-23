@@ -31,7 +31,7 @@ func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 		return err
 	}
 
-	mgr.Resolved.TargetInstanceName = targetInstance.Name
+	mgr.Resolved.Target.Name = targetInstance.Name
 
 	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", cfg.ApplicationName), 63)
 	if err != nil {
@@ -51,7 +51,7 @@ func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 					"migrator.nais.io/cleanup": app.Name,
 				},
 				Annotations: map[string]string{
-					"migrator.nais.io/source-instance": mgr.Resolved.SourceInstanceName,
+					"migrator.nais.io/source-instance": mgr.Resolved.Source.Name,
 					"migrator.nais.io/target-instance": cfg.TargetInstance.Name,
 				},
 			},
@@ -120,7 +120,7 @@ func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error 
 	for targetSqlInstance == nil {
 		mgr.Logger.Info("waiting for target instance to be ready")
 		time.Sleep(5 * time.Second)
-		targetSqlInstance, err = mgr.SqlInstanceClient.Get(getInstanceCtx, mgr.Resolved.TargetInstanceName)
+		targetSqlInstance, err = mgr.SqlInstanceClient.Get(getInstanceCtx, mgr.Resolved.Target.Name)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return err
@@ -128,9 +128,9 @@ func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error 
 		}
 	}
 
-	mgr.Resolved.TargetInstanceIp = *targetSqlInstance.Status.PublicIpAddress
+	mgr.Resolved.Target.Ip = *targetSqlInstance.Status.PublicIpAddress
 
-	outgoingIp := mgr.Resolved.TargetInstanceIp
+	outgoingIp := mgr.Resolved.Target.Ip
 	for _, address := range targetSqlInstance.Status.IpAddress {
 		if *address.Type == "OUTGOING" {
 			outgoingIp = *address.IpAddress
@@ -139,13 +139,13 @@ func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error 
 
 	mgr.Logger.Info("preparing source instance for migration")
 
-	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
+	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Source.Name)
 	if err != nil {
 		return err
 	}
 
 	authNetwork := v1beta1.InstanceAuthorizedNetworks{
-		Name:  &mgr.Resolved.TargetInstanceName,
+		Name:  &mgr.Resolved.Target.Name,
 		Value: fmt.Sprintf("%s/32", outgoingIp),
 	}
 
@@ -160,7 +160,7 @@ func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error 
 	}
 
 	time.Sleep(5 * time.Second)
-	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
+	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Source.Name)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error 
 	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
 		mgr.Logger.Info("waiting for source instance to be ready")
 		time.Sleep(3 * time.Second)
-		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.SourceInstanceName)
+		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Source.Name)
 		if err != nil {
 			return err
 		}

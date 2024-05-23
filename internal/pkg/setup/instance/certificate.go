@@ -72,7 +72,7 @@ func CreateSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Mana
 	sslCert.SslClientCert = *sqlSslCert.Status.Cert
 	sslCert.SslClientKey = *sqlSslCert.Status.PrivateKey
 
-	err = createTempFiles(&mgr.Resolved.SourceSslCert.SslClientCert, &mgr.Resolved.SourceSslCert.SslClientKey, &mgr.Resolved.SourceSslCert.SslCaCert)
+	err = createTempFiles(&mgr.Resolved.Source.SslCert.SslClientCert, &mgr.Resolved.Source.SslCert.SslClientKey, &mgr.Resolved.Source.SslCert.SslCaCert)
 	if err != nil {
 		return err
 	}

@@ -65,7 +65,7 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 	}
 
 	logger = logger.With("app", cfg.ApplicationName,
-		"sourceInstance", r.SourceInstanceName,
+		"sourceInstance", r.Source.Name,
 		"targetInstance", cfg.TargetInstance.Name,
 		"projectId", r.GcpProjectId,
 	)
@@ -99,7 +99,7 @@ func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, cl
 		return fmt.Errorf("unable to get existing application: %w", err)
 	}
 
-	resolved.SourceInstanceName, err = resolveInstanceName(app)
+	resolved.Source.Name, err = resolveInstanceName(app)
 	if err != nil {
 		return err
 	}
@@ -109,25 +109,25 @@ func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, cl
 		return err
 	}
 
-	resolved.SourceAppUsername = resolveAppUsername(app)
+	resolved.Source.AppUsername = resolveAppUsername(app)
 
 	secret, err := clientset.CoreV1().Secrets(cfg.Namespace).Get(ctx, "google-sql-"+cfg.ApplicationName, v1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	resolved.SourceAppPassword, err = resolveAppPassword(secret)
+	resolved.Source.AppPassword, err = resolveAppPassword(secret)
 	if err != nil {
 		return err
 	}
 
-	sqlInstance, err := sqlInstanceClient.Get(ctx, resolved.SourceInstanceName)
+	sqlInstance, err := sqlInstanceClient.Get(ctx, resolved.Source.Name)
 	if err != nil {
 		return fmt.Errorf("unable to get existing sql instance: %w", err)
 	}
 	if sqlInstance.Status.PublicIpAddress == nil {
-		return fmt.Errorf("sql instance %s does not have public ip address", resolved.SourceInstanceName)
+		return fmt.Errorf("sql instance %s does not have public ip address", resolved.Source.Name)
 	}
-	resolved.SourceInstanceIp = *sqlInstance.Status.PublicIpAddress
+	resolved.Source.Ip = *sqlInstance.Status.PublicIpAddress
 
 	return nil
 }

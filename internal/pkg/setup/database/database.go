@@ -14,12 +14,12 @@ import (
 
 func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
 	databasePassword := rand.String(14)
-	err := setDatabasePassword(ctx, mgr, mgr.Resolved.SourceInstanceName, databasePassword, &mgr.Resolved.SourcePostgresUserPassword)
+	err := setDatabasePassword(ctx, mgr, mgr.Resolved.Source.Name, databasePassword, &mgr.Resolved.Source.PostgresPassword)
 	if err != nil {
 		return err
 	}
 
-	err = instance.CreateSslCert(ctx, cfg, mgr, mgr.Resolved.SourceInstanceName, &mgr.Resolved.SourceSslCert)
+	err = instance.CreateSslCert(ctx, cfg, mgr, mgr.Resolved.Source.Name, &mgr.Resolved.Source.SslCert)
 	if err != nil {
 		return err
 	}
@@ -34,12 +34,12 @@ func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 
 func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
 	databasePassword := rand.String(14)
-	err := setDatabasePassword(ctx, mgr, cfg.CommonConfig.TargetInstance.Name, databasePassword, &mgr.Resolved.TargetPostgresUserPassword)
+	err := setDatabasePassword(ctx, mgr, cfg.CommonConfig.TargetInstance.Name, databasePassword, &mgr.Resolved.Target.PostgresPassword)
 	if err != nil {
 		return err
 	}
 
-	err = instance.CreateSslCert(ctx, cfg, mgr, cfg.CommonConfig.TargetInstance.Name, &mgr.Resolved.TargetSslCert)
+	err = instance.CreateSslCert(ctx, cfg, mgr, cfg.CommonConfig.TargetInstance.Name, &mgr.Resolved.Target.SslCert)
 
 	return nil
 }
@@ -67,7 +67,7 @@ func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance
 }
 
 func installExtension(ctx context.Context, mgr *common_main.Manager) error {
-	logger := mgr.Logger.With("instance", mgr.Resolved.SourceInstanceName)
+	logger := mgr.Logger.With("instance", mgr.Resolved.Source.Name)
 	logger.Info("installing pglogical extension and adding grants")
 
 	dbInfos := []struct {
@@ -78,18 +78,18 @@ func installExtension(ctx context.Context, mgr *common_main.Manager) error {
 		{
 			DatabaseName: config.PostgresDatabaseName,
 			Username:     config.PostgresDatabaseUser,
-			Password:     mgr.Resolved.SourcePostgresUserPassword,
+			Password:     mgr.Resolved.Source.PostgresPassword,
 		},
 		{
 			DatabaseName: mgr.Resolved.DatabaseName,
-			Username:     mgr.Resolved.SourceAppUsername,
-			Password:     mgr.Resolved.SourceAppPassword,
+			Username:     mgr.Resolved.Source.AppUsername,
+			Password:     mgr.Resolved.Source.AppPassword,
 		},
 	}
 
 	for _, dbInfo := range dbInfos {
 		connection := fmt.Sprint(
-			" host="+mgr.Resolved.SourceInstanceIp,
+			" host="+mgr.Resolved.Source.Ip,
 			" port="+strconv.Itoa(config.DatabasePort),
 			" user="+dbInfo.Username,
 			" password="+dbInfo.Password,

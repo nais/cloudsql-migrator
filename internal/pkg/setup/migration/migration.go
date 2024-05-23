@@ -15,7 +15,7 @@ import (
 )
 
 func SetupMigration(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
-	migrationName := fmt.Sprintf("%s-%s", mgr.Resolved.SourceInstanceName, mgr.Resolved.TargetInstanceName)
+	migrationName := fmt.Sprintf("%s-%s", mgr.Resolved.Source.Name, mgr.Resolved.Target.Name)
 
 	err := deleteMigrationJob(ctx, migrationName, mgr)
 	if err != nil {
