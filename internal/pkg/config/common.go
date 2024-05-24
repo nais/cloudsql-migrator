@@ -26,5 +26,5 @@ type CommonConfig struct {
 	Logging
 
 	// Development mode config
-	Development
+	Development Development `env:", prefix=DEVELOPMENT_MODE_"`
 }

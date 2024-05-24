@@ -39,7 +39,7 @@ func main() {
 		os.Exit(3)
 	}
 
-	if !cfg.SkipBackup {
+	if !cfg.Development.SkipBackup {
 		err = instance.CreateBackup(ctx, mgr, mgr.Resolved.Source.Name)
 		if err != nil {
 			mgr.Logger.Error("Failed to create backup", "error", err)

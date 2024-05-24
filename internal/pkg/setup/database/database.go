@@ -46,7 +46,7 @@ func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 }
 
 func makePassword(cfg *setup.Config) string {
-	if cfg.UnsafePassword {
+	if cfg.Development.UnsafePassword {
 		return "testpassword"
 	}
 	return rand.String(14)
