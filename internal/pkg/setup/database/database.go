@@ -14,7 +14,7 @@ import (
 )
 
 func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
-	databasePassword := rand.String(14)
+	databasePassword := makePassword(cfg)
 	err := setDatabasePassword(ctx, mgr, mgr.Resolved.Source.Name, databasePassword, &mgr.Resolved.Source.PostgresPassword)
 	if err != nil {
 		return err
@@ -34,7 +34,7 @@ func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 }
 
 func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
-	databasePassword := rand.String(14)
+	databasePassword := makePassword(cfg)
 	err := setDatabasePassword(ctx, mgr, cfg.CommonConfig.TargetInstance.Name, databasePassword, &mgr.Resolved.Target.PostgresPassword)
 	if err != nil {
 		return err
@@ -43,6 +43,13 @@ func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 	err = instance.CreateSslCert(ctx, cfg, mgr, cfg.CommonConfig.TargetInstance.Name, &mgr.Resolved.Target.SslCert)
 
 	return nil
+}
+
+func makePassword(cfg *setup.Config) string {
+	if cfg.UnsafePassword {
+		return "testpassword"
+	}
+	return rand.String(14)
 }
 
 func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance string, password string, resolved *string) error {
