@@ -24,4 +24,7 @@ type CommonConfig struct {
 
 	// Logging configuration
 	Logging
+
+	// Development mode config
+	Development
 }
