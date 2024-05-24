@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func CreateBackup(ctx context.Context, mgr *common_main.Manager) error {
+func CreateBackup(ctx context.Context, mgr *common_main.Manager, name string) error {
 	mgr.Logger.Info("creating backup")
 
 	backupRunsService := mgr.SqlAdminService.BackupRuns
@@ -20,7 +20,7 @@ func CreateBackup(ctx context.Context, mgr *common_main.Manager) error {
 	backupRun := &sqladmin.BackupRun{
 		Description: "Pre-migration backup",
 	}
-	op, err := backupRunsService.Insert(mgr.Resolved.GcpProjectId, mgr.Resolved.Source.Name, backupRun).Context(ctx).Do()
+	op, err := backupRunsService.Insert(mgr.Resolved.GcpProjectId, name, backupRun).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to create backup: %w", err)
 	}

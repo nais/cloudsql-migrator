@@ -9,6 +9,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/k8s"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	naisv1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
+	"github.com/nais/liberator/pkg/namegen"
 	"google.golang.org/api/datamigration/v1"
 	"google.golang.org/api/sqladmin/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,7 +118,7 @@ func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, cl
 		return err
 	}
 
-	err = r.ResolveSourceAppPassword(secret)
+	err = r.Source.ResolveAppPassword(secret)
 	if err != nil {
 		return err
 	}
@@ -155,4 +156,13 @@ func newK8sClient() (kubernetes.Interface, dynamic.Interface, error) {
 	}
 
 	return clientset, dynamicClient, nil
+}
+
+func HelperAppName(applicationName string) (string, error) {
+	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", applicationName), 63)
+	if err != nil {
+		return "", err
+	}
+
+	return helperName, nil
 }

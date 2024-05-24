@@ -2,13 +2,11 @@ package instance
 
 import (
 	"context"
-	"fmt"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
-	"github.com/nais/liberator/pkg/namegen"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
@@ -22,7 +20,7 @@ const (
 )
 
 func CreateSslCert(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager, instance string, sslCert *resolved.SslCert) error {
-	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", instance), 63)
+	helperName, err := common_main.HelperAppName(instance)
 	if err != nil {
 		return err
 	}

@@ -46,10 +46,20 @@ func (r *Resolved) MigrationName() (string, error) {
 	return fmt.Sprintf("%s-%s", r.Source.Name, r.Target.Name), nil
 }
 
-func (r *Resolved) ResolveSourceAppPassword(secret *v1.Secret) error {
+func (i *Instance) ResolveAppPassword(secret *v1.Secret) error {
 	for key, bytes := range secret.Data {
 		if strings.HasSuffix(key, "_PASSWORD") {
-			r.Source.AppPassword = string(bytes)
+			i.AppPassword = string(bytes)
+			return nil
+		}
+	}
+	return fmt.Errorf("unable to find password in secret %s", secret.Name)
+}
+
+func (i *Instance) ResolveAppUsername(secret *v1.Secret) error {
+	for key, bytes := range secret.Data {
+		if strings.HasSuffix(key, "_USERNAME") {
+			i.AppPassword = string(bytes)
 			return nil
 		}
 	}

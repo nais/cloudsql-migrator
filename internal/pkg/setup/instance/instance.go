@@ -9,7 +9,6 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
-	"github.com/nais/liberator/pkg/namegen"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -33,7 +32,7 @@ func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 
 	mgr.Resolved.Target.Name = targetInstance.Name
 
-	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", cfg.ApplicationName), 63)
+	helperName, err := common_main.HelperAppName(cfg.ApplicationName)
 	if err != nil {
 		return err
 	}
