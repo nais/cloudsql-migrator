@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
-	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"log/slog"
@@ -14,7 +13,7 @@ import (
 	"time"
 )
 
-func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+func PrepareSourceDatabase(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager) error {
 	databasePassword := makePassword(cfg, mgr.Logger)
 	err := setDatabasePassword(ctx, mgr, mgr.Resolved.Source.Name, databasePassword, &mgr.Resolved.Source.PostgresPassword)
 	if err != nil {
@@ -34,19 +33,19 @@ func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 	return nil
 }
 
-func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+func PrepareTargetDatabase(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager) error {
 	databasePassword := makePassword(cfg, mgr.Logger)
-	err := setDatabasePassword(ctx, mgr, cfg.CommonConfig.TargetInstance.Name, databasePassword, &mgr.Resolved.Target.PostgresPassword)
+	err := setDatabasePassword(ctx, mgr, cfg.TargetInstance.Name, databasePassword, &mgr.Resolved.Target.PostgresPassword)
 	if err != nil {
 		return err
 	}
 
-	err = instance.CreateSslCert(ctx, cfg, mgr, cfg.CommonConfig.TargetInstance.Name, &mgr.Resolved.Target.SslCert)
+	err = instance.CreateSslCert(ctx, cfg, mgr, cfg.TargetInstance.Name, &mgr.Resolved.Target.SslCert)
 
 	return nil
 }
 
-func makePassword(cfg *setup.Config, logger *slog.Logger) string {
+func makePassword(cfg *config.CommonConfig, logger *slog.Logger) string {
 	if cfg.Development.UnsafePassword {
 		logger.Warn("using unsafe password for database user because of development mode setting")
 		return "testpassword"

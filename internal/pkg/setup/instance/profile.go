@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
-	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func CreateConnectionProfiles(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+func CreateConnectionProfiles(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager) error {
 	cps := getDmsConnectionProfiles(cfg, mgr)
 
 	err := deleteOldConnectionProfiles(ctx, cps, mgr)
@@ -91,7 +90,7 @@ func deleteOldConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb
 	return nil
 }
 
-func getDmsConnectionProfiles(cfg *setup.Config, mgr *common_main.Manager) map[string]*clouddmspb.ConnectionProfile {
+func getDmsConnectionProfiles(cfg *config.CommonConfig, mgr *common_main.Manager) map[string]*clouddmspb.ConnectionProfile {
 	cps := make(map[string]*clouddmspb.ConnectionProfile, 2)
 	cps["source"] = connectionProfile(cfg, mgr.Resolved.Source)
 	cps["target"] = connectionProfile(cfg, mgr.Resolved.Target)
@@ -99,7 +98,7 @@ func getDmsConnectionProfiles(cfg *setup.Config, mgr *common_main.Manager) map[s
 	return cps
 }
 
-func connectionProfile(cfg *setup.Config, instance resolved.Instance) *clouddmspb.ConnectionProfile {
+func connectionProfile(cfg *config.CommonConfig, instance resolved.Instance) *clouddmspb.ConnectionProfile {
 	return &clouddmspb.ConnectionProfile{
 		Name: cfg.ApplicationName,
 		ConnectionProfile: &clouddmspb.ConnectionProfile_Postgresql{

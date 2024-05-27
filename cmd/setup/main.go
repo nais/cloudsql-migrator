@@ -8,7 +8,6 @@ import (
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
-	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/database"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/migration"
@@ -16,7 +15,7 @@ import (
 )
 
 func main() {
-	cfg := &setup.Config{}
+	cfg := &config.CommonConfig{}
 
 	ctx := context.Background()
 
@@ -25,8 +24,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger := config.SetupLogging(&cfg.CommonConfig)
-	mgr, err := common_main.Main(ctx, &cfg.CommonConfig, logger)
+	logger := config.SetupLogging(cfg)
+	mgr, err := common_main.Main(ctx, cfg, logger)
 	if err != nil {
 		logger.Error("failed to complete configuration", "error", err)
 		os.Exit(2)
@@ -40,7 +39,7 @@ func main() {
 		os.Exit(3)
 	}
 
-	err = backup.CreateBackup(ctx, &cfg.CommonConfig, mgr, mgr.Resolved.Source.Name)
+	err = backup.CreateBackup(ctx, cfg, mgr, mgr.Resolved.Source.Name)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
 		os.Exit(4)

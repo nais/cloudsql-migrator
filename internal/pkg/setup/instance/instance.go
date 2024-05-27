@@ -6,7 +6,7 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	_ "github.com/lib/pq"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
-	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
+	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -19,7 +19,7 @@ const (
 	dummyAppImage = "europe-north1-docker.pkg.dev/nais-io/nais/images/kafka-debug:latest"
 )
 
-func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
+func CreateInstance(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager) error {
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		return err
@@ -77,7 +77,7 @@ func CreateInstance(ctx context.Context, cfg *setup.Config, mgr *common_main.Man
 	return nil
 }
 
-func defineTargetInstance(cfg *setup.Config, app *nais_io_v1alpha1.Application) (*nais_io_v1.CloudSqlInstance, error) {
+func defineTargetInstance(cfg *config.CommonConfig, app *nais_io_v1alpha1.Application) (*nais_io_v1.CloudSqlInstance, error) {
 	sourceInstance := app.Spec.GCP.SqlInstances[0]
 	targetInstance := sourceInstance.DeepCopy()
 
