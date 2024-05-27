@@ -1,15 +1,15 @@
-package instance
+package backup
 
 import (
 	"context"
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
-	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
+	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"google.golang.org/api/sqladmin/v1"
 	"time"
 )
 
-func CreateBackup(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager, name string) error {
+func CreateBackup(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager, name string) error {
 	if cfg.Development.SkipBackup {
 		mgr.Logger.Warn("skipping backup creation because of development mode setting")
 		return nil

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/nais/cloudsql-migrator/internal/pkg/backup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/promote"
@@ -68,17 +69,17 @@ func main() {
 
 	// Update application resource in cluster to match new database
 
-	//err = promote.ScaleApplication(ctx, &cfg, mgr, 1)
-	//if err != nil {
-	//	mgr.Logger.Error("failed to scale application", "error", err)
-	//	os.Exit(7)
-	//}
+	err = promote.ScaleApplication(ctx, &cfg, mgr, 1)
+	if err != nil {
+		mgr.Logger.Error("failed to scale application", "error", err)
+		os.Exit(7)
+	}
 
-	//err = instance.CreateBackup(ctx, mgr, mgr.Resolved.Target.Name)
-	//if err != nil {
-	//	mgr.Logger.Error("Failed to create backup", "error", err)
-	//	os.Exit(8)
-	//}
+	err = backup.CreateBackup(ctx, &cfg, mgr, mgr.Resolved.Target.Name)
+	if err != nil {
+		mgr.Logger.Error("Failed to create backup", "error", err)
+		os.Exit(8)
+	}
 
 }
 

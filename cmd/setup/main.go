@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/nais/cloudsql-migrator/internal/pkg/backup"
 	"os"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -39,7 +40,7 @@ func main() {
 		os.Exit(3)
 	}
 
-	err = instance.CreateBackup(ctx, cfg, mgr, mgr.Resolved.Source.Name)
+	err = backup.CreateBackup(ctx, &cfg.CommonConfig, mgr, mgr.Resolved.Source.Name)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
 		os.Exit(4)
