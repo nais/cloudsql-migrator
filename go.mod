@@ -16,8 +16,8 @@ require (
 	github.com/nais/liberator v0.0.0-20240508112139-876aae49c479
 	github.com/sethvargo/go-envconfig v1.0.3
 	google.golang.org/api v0.181.0
-	k8s.io/apimachinery v0.30.0
-	k8s.io/client-go v0.29.0
+	k8s.io/apimachinery v0.30.1
+	k8s.io/client-go v0.30.1
 )
 
 require (
@@ -88,7 +88,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.30.0 // indirect
+	k8s.io/api v0.30.1 // indirect
 	k8s.io/apiextensions-apiserver v0.29.0 // indirect
 	k8s.io/component-base v0.29.0 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
