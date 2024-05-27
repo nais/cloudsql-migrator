@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/backup"
+	"github.com/nais/cloudsql-migrator/internal/pkg/database"
 	"os"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
-	"github.com/nais/cloudsql-migrator/internal/pkg/setup/database"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/migration"
 	"github.com/sethvargo/go-envconfig"

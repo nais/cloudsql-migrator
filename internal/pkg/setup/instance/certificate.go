@@ -19,10 +19,16 @@ const (
 	RootCertPath = "/tmp/root.crt"
 )
 
-func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, instance string, sslCert *resolved.SslCert) error {
+type CertPaths struct {
+	RootCertPath string
+	CertPath     string
+	KeyPath      string
+}
+
+func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, instance string, sslCert *resolved.SslCert) (*CertPaths, error) {
 	helperName, err := common_main.HelperAppName(instance)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	logger := mgr.Logger.With("instance", instance, "certName", helperName)
@@ -54,14 +60,14 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Man
 	}
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for sqlSslCert.Status.Cert == nil || sqlSslCert.Status.PrivateKey == nil || sqlSslCert.Status.ServerCaCert == nil {
 		time.Sleep(3 * time.Second)
 		sqlSslCert, err = mgr.SqlSslCertClient.Get(ctx, sqlSslCert.Name)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		logger.Info("Waiting for SQLSSLCert to be ready")
 	}
@@ -72,11 +78,15 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Man
 
 	err = createTempFiles(&mgr.Resolved.Source.SslCert.SslClientCert, &mgr.Resolved.Source.SslCert.SslClientKey, &mgr.Resolved.Source.SslCert.SslCaCert)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	logger.Info("ssl certificate created successfully")
 
-	return nil
+	return &CertPaths{
+		RootCertPath: RootCertPath,
+		CertPath:     CertPath,
+		KeyPath:      KeyPath,
+	}, nil
 }
 
 func createTempFiles(cert, key, rootCert *string) error {

@@ -6,7 +6,9 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/backup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
+	"github.com/nais/cloudsql-migrator/internal/pkg/database"
 	"github.com/nais/cloudsql-migrator/internal/pkg/promote"
+	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"github.com/sethvargo/go-envconfig"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,7 +63,9 @@ func main() {
 		os.Exit(5)
 	}
 
-	err = promote.ChangeOwnership(ctx, mgr)
+	certPaths, err := instance.CreateSslCert(ctx, &cfg, mgr, mgr.Resolved.Target.Name, &mgr.Resolved.Target.SslCert)
+
+	err = database.ChangeOwnership(ctx, mgr, certPaths)
 	if err != nil {
 		mgr.Logger.Error("failed to change ownership", "error", err)
 		os.Exit(6)

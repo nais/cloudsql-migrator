@@ -20,12 +20,12 @@ func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, mgr *common_
 		return err
 	}
 
-	err = instance.CreateSslCert(ctx, cfg, mgr, mgr.Resolved.Source.Name, &mgr.Resolved.Source.SslCert)
+	certPaths, err := instance.CreateSslCert(ctx, cfg, mgr, mgr.Resolved.Source.Name, &mgr.Resolved.Source.SslCert)
 	if err != nil {
 		return err
 	}
 
-	err = installExtension(ctx, mgr)
+	err = installExtension(ctx, mgr, certPaths)
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func PrepareTargetDatabase(ctx context.Context, cfg *config.Config, mgr *common_
 		return err
 	}
 
-	err = instance.CreateSslCert(ctx, cfg, mgr, cfg.TargetInstance.Name, &mgr.Resolved.Target.SslCert)
+	_, err = instance.CreateSslCert(ctx, cfg, mgr, cfg.TargetInstance.Name, &mgr.Resolved.Target.SslCert)
 
 	return nil
 }
@@ -84,7 +84,7 @@ func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance
 	return nil
 }
 
-func installExtension(ctx context.Context, mgr *common_main.Manager) error {
+func installExtension(ctx context.Context, mgr *common_main.Manager, certPaths *instance.CertPaths) error {
 	logger := mgr.Logger.With("instance", mgr.Resolved.Source.Name)
 	logger.Info("installing pglogical extension and adding grants")
 
@@ -106,29 +106,20 @@ func installExtension(ctx context.Context, mgr *common_main.Manager) error {
 	}
 
 	for _, dbInfo := range dbInfos {
-		connection := fmt.Sprint(
-			" host="+mgr.Resolved.Source.Ip,
-			" port="+strconv.Itoa(config.DatabasePort),
-			" user="+dbInfo.Username,
-			" password="+dbInfo.Password,
-			" dbname="+dbInfo.DatabaseName,
-			" sslmode=verify-ca",
-			" sslrootcert="+instance.RootCertPath,
-			" sslkey="+instance.KeyPath,
-			" sslcert="+instance.CertPath,
+		dbConn, err := createConnection(
+			mgr.Resolved.Source.Ip,
+			dbInfo.Username,
+			dbInfo.Password,
+			dbInfo.DatabaseName,
+			certPaths.RootCertPath,
+			certPaths.KeyPath,
+			certPaths.CertPath,
+			logger,
 		)
-
-		dbConn, err := sql.Open(config.DatabaseDriver, connection)
 		if err != nil {
 			return err
 		}
 		defer dbConn.Close()
-
-		err = dbConn.Ping()
-		if err != nil {
-			logger.Error("failed to connect to database", "error", err)
-			return err
-		}
 
 		logger.Info("installing extension and granting permissions to postgres user", "database", dbInfo.DatabaseName)
 
@@ -146,4 +137,61 @@ func installExtension(ctx context.Context, mgr *common_main.Manager) error {
 	}
 
 	return nil
+}
+
+func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, certPaths *instance.CertPaths) error {
+	logger := mgr.Logger
+
+	dbConn, err := createConnection(
+		mgr.Resolved.Source.Ip,
+		mgr.Resolved.Target.AppUsername,
+		mgr.Resolved.Target.AppPassword,
+		mgr.Resolved.DatabaseName,
+		certPaths.RootCertPath,
+		certPaths.KeyPath,
+		certPaths.CertPath,
+		logger,
+	)
+	if err != nil {
+		return err
+	}
+	defer dbConn.Close()
+
+	logger.Info("reassigning ownership from cloudsqlexternalsync to app user", "database", mgr.Resolved.DatabaseName, "user", mgr.Resolved.Target.AppUsername)
+
+	_, err = dbConn.ExecContext(ctx, "GRANT cloudsqlexternalsync to \""+mgr.Resolved.Target.AppUsername+"\""+
+		"REASSIGN OWNED BY cloudsqlexternalsync to \""+mgr.Resolved.Target.AppUsername+"\";"+
+		"DROP ROLE cloudsqlexternalsync;")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createConnection(instanceIp string, username string, password string, databaseName string, rootCertPath string, keyPath string, certPath string, logger *slog.Logger) (*sql.DB, error) {
+	connection := fmt.Sprint(
+		" host="+instanceIp,
+		" port="+strconv.Itoa(config.DatabasePort),
+		" user="+username,
+		" password="+password,
+		" dbname="+databaseName,
+		" sslmode=verify-ca",
+		" sslrootcert="+rootCertPath,
+		" sslkey="+keyPath,
+		" sslcert="+certPath,
+	)
+
+	dbConn, err := sql.Open(config.DatabaseDriver, connection)
+	if err != nil {
+		return nil, err
+	}
+
+	err = dbConn.Ping()
+	if err != nil {
+		logger.Error("failed to connect to database", "error", err)
+		_ = dbConn.Close()
+		return nil, err
+	}
+	return dbConn, err
 }
