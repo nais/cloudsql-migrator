@@ -9,6 +9,7 @@ import (
 )
 
 func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, replicas int32) error {
+	mgr.Logger.Info("scaling application", "name", cfg.ApplicationName, "replicas", replicas)
 	scaleApplyConfiguration := autoscaling_v1.Scale{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      cfg.ApplicationName,
