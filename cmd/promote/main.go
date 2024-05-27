@@ -51,11 +51,11 @@ func main() {
 		os.Exit(3)
 	}
 
-	//err = promote.Promote(ctx, &cfg, mgr)
-	//if err != nil {
-	//	mgr.Logger.Error("failed to promote", "error", err)
-	//	os.Exit(4)
-	//}
+	err = promote.Promote(ctx, &cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to promote", "error", err)
+		os.Exit(4)
+	}
 
 	err = setAppCredentials(ctx, mgr, &cfg)
 	if err != nil {
