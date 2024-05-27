@@ -143,7 +143,7 @@ func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, certPaths *i
 	logger := mgr.Logger
 
 	dbConn, err := createConnection(
-		mgr.Resolved.Source.Ip,
+		mgr.Resolved.Target.Ip,
 		mgr.Resolved.Target.AppUsername,
 		mgr.Resolved.Target.AppPassword,
 		mgr.Resolved.DatabaseName,
@@ -159,9 +159,8 @@ func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, certPaths *i
 
 	logger.Info("reassigning ownership from cloudsqlexternalsync to app user", "database", mgr.Resolved.DatabaseName, "user", mgr.Resolved.Target.AppUsername)
 
-	_, err = dbConn.ExecContext(ctx, "GRANT cloudsqlexternalsync to \""+mgr.Resolved.Target.AppUsername+"\""+
-		"REASSIGN OWNED BY cloudsqlexternalsync to \""+mgr.Resolved.Target.AppUsername+"\";"+
-		"DROP ROLE cloudsqlexternalsync;")
+	_, err = dbConn.ExecContext(ctx, "GRANT cloudsqlexternalsync to \""+mgr.Resolved.Target.AppUsername+"\";"+
+		"REASSIGN OWNED BY cloudsqlexternalsync to \""+mgr.Resolved.Target.AppUsername+"\";")
 	if err != nil {
 		return err
 	}

@@ -50,7 +50,7 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Man
 				},
 			},
 			Spec: v1beta1.SQLSSLCertSpec{
-				CommonName: "test",
+				CommonName: helperName,
 				InstanceRef: v1alpha1.ResourceRef{
 					Name:      instance,
 					Namespace: cfg.Namespace,
@@ -76,7 +76,7 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Man
 	sslCert.SslClientCert = *sqlSslCert.Status.Cert
 	sslCert.SslClientKey = *sqlSslCert.Status.PrivateKey
 
-	err = createTempFiles(&mgr.Resolved.Source.SslCert.SslClientCert, &mgr.Resolved.Source.SslCert.SslClientKey, &mgr.Resolved.Source.SslCert.SslCaCert)
+	err = createTempFiles(&sslCert.SslClientCert, &sslCert.SslClientKey, &sslCert.SslCaCert)
 	if err != nil {
 		return nil, err
 	}
