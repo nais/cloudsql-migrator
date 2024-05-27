@@ -8,7 +8,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ScaleApplication(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager, replicas int32) error {
+func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, replicas int32) error {
 	scaleApplyConfiguration := autoscaling_v1.Scale{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      cfg.ApplicationName,

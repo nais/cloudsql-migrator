@@ -19,7 +19,7 @@ const (
 	RootCertPath = "/tmp/root.crt"
 )
 
-func CreateSslCert(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager, instance string, sslCert *resolved.SslCert) error {
+func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, instance string, sslCert *resolved.SslCert) error {
 	helperName, err := common_main.HelperAppName(instance)
 	if err != nil {
 		return err

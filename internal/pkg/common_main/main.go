@@ -33,7 +33,7 @@ type Manager struct {
 	K8sClient            kubernetes.Interface
 }
 
-func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*Manager, error) {
+func Main(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Manager, error) {
 	clientset, dynamicClient, err := newK8sClient()
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func Main(ctx context.Context, cfg *config.CommonConfig, logger *slog.Logger) (*
 	}, nil
 }
 
-func resolveClusterInformation(ctx context.Context, cfg *config.CommonConfig, clientset kubernetes.Interface, client k8s.AppClient, sqlInstanceClient k8s.SqlInstanceClient, r *resolved.Resolved) error {
+func resolveClusterInformation(ctx context.Context, cfg *config.Config, clientset kubernetes.Interface, client k8s.AppClient, sqlInstanceClient k8s.SqlInstanceClient, r *resolved.Resolved) error {
 	ns, err := clientset.CoreV1().Namespaces().Get(ctx, cfg.Namespace, v1.GetOptions{})
 	if err != nil {
 		return err

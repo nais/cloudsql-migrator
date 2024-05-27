@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func CreateBackup(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager, name string) error {
+func CreateBackup(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, name string) error {
 	if cfg.Development.SkipBackup {
 		mgr.Logger.Warn("skipping backup creation because of development mode setting")
 		return nil

@@ -16,7 +16,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	cfg := config.CommonConfig{}
+	cfg := config.Config{}
 
 	if err := envconfig.Process(ctx, &cfg); err != nil {
 		fmt.Printf("invalid configuration: %v", err)
@@ -83,7 +83,7 @@ func main() {
 
 }
 
-func setAppCredentials(ctx context.Context, mgr *common_main.Manager, cfg *config.CommonConfig) error {
+func setAppCredentials(ctx context.Context, mgr *common_main.Manager, cfg *config.Config) error {
 	clientSet := mgr.K8sClient
 	helperName, err := common_main.HelperAppName(cfg.ApplicationName)
 	if err != nil {

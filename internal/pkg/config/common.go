@@ -14,7 +14,7 @@ type TargetInstance struct {
 	DiskSize int
 }
 
-type CommonConfig struct {
+type Config struct {
 	// The name of the application
 	ApplicationName string `env:"APP_NAME, required"`
 	// The namespace to work in

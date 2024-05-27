@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	cfg := &config.CommonConfig{}
+	cfg := &config.Config{}
 
 	ctx := context.Background()
 

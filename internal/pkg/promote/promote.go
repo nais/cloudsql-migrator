@@ -10,7 +10,7 @@ import (
 	"strconv"
 )
 
-func Promote(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager) error {
+func Promote(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
 	migrationName, err := mgr.Resolved.MigrationName()
 	if err != nil {
 		return err

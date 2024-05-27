@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func SetupMigration(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager) error {
+func SetupMigration(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
 	migrationName, err := mgr.Resolved.MigrationName()
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func demoteTargetInstance(ctx context.Context, migrationJob *clouddmspb.Migratio
 	return nil
 }
 
-func createMigrationJob(ctx context.Context, migrationName string, cfg *config.CommonConfig, mgr *common_main.Manager) (*clouddmspb.MigrationJob, error) {
+func createMigrationJob(ctx context.Context, migrationName string, cfg *config.Config, mgr *common_main.Manager) (*clouddmspb.MigrationJob, error) {
 	migrationJob, err := mgr.DBMigrationClient.GetMigrationJob(ctx, &clouddmspb.GetMigrationJobRequest{
 		Name: mgr.Resolved.GcpComponentURI("migrationJobs", migrationName),
 	})

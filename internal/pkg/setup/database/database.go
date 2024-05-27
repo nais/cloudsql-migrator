@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func PrepareSourceDatabase(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager) error {
+func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
 	databasePassword := makePassword(cfg, mgr.Logger)
 	err := setDatabasePassword(ctx, mgr, mgr.Resolved.Source.Name, databasePassword, &mgr.Resolved.Source.PostgresPassword)
 	if err != nil {
@@ -33,7 +33,7 @@ func PrepareSourceDatabase(ctx context.Context, cfg *config.CommonConfig, mgr *c
 	return nil
 }
 
-func PrepareTargetDatabase(ctx context.Context, cfg *config.CommonConfig, mgr *common_main.Manager) error {
+func PrepareTargetDatabase(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
 	databasePassword := makePassword(cfg, mgr.Logger)
 	err := setDatabasePassword(ctx, mgr, cfg.TargetInstance.Name, databasePassword, &mgr.Resolved.Target.PostgresPassword)
 	if err != nil {
@@ -45,7 +45,7 @@ func PrepareTargetDatabase(ctx context.Context, cfg *config.CommonConfig, mgr *c
 	return nil
 }
 
-func makePassword(cfg *config.CommonConfig, logger *slog.Logger) string {
+func makePassword(cfg *config.Config, logger *slog.Logger) string {
 	if cfg.Development.UnsafePassword {
 		logger.Warn("using unsafe password for database user because of development mode setting")
 		return "testpassword"
