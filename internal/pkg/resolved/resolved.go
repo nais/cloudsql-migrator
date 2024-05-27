@@ -59,7 +59,7 @@ func (i *Instance) ResolveAppPassword(secret *v1.Secret) error {
 func (i *Instance) ResolveAppUsername(secret *v1.Secret) error {
 	for key, bytes := range secret.Data {
 		if strings.HasSuffix(key, "_USERNAME") {
-			i.AppPassword = string(bytes)
+			i.AppUsername = string(bytes)
 			return nil
 		}
 	}

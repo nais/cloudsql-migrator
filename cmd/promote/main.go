@@ -48,11 +48,11 @@ func main() {
 		os.Exit(3)
 	}
 
-	err = promote.Promote(ctx, &cfg, mgr)
-	if err != nil {
-		mgr.Logger.Error("failed to promote", "error", err)
-		os.Exit(4)
-	}
+	//err = promote.Promote(ctx, &cfg, mgr)
+	//if err != nil {
+	//	mgr.Logger.Error("failed to promote", "error", err)
+	//	os.Exit(4)
+	//}
 
 	err = setAppCredentials(ctx, mgr, &cfg)
 	if err != nil {
@@ -68,11 +68,11 @@ func main() {
 
 	// Update application resource in cluster to match new database
 
-	err = promote.ScaleApplication(ctx, &cfg, mgr, 1)
-	if err != nil {
-		mgr.Logger.Error("failed to scale application", "error", err)
-		os.Exit(7)
-	}
+	//err = promote.ScaleApplication(ctx, &cfg, mgr, 1)
+	//if err != nil {
+	//	mgr.Logger.Error("failed to scale application", "error", err)
+	//	os.Exit(7)
+	//}
 
 	//err = instance.CreateBackup(ctx, mgr, mgr.Resolved.Target.Name)
 	//if err != nil {
