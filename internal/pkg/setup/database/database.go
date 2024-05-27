@@ -9,12 +9,13 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config/setup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"log/slog"
 	"strconv"
 	"time"
 )
 
 func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
-	databasePassword := makePassword(cfg)
+	databasePassword := makePassword(cfg, mgr.Logger)
 	err := setDatabasePassword(ctx, mgr, mgr.Resolved.Source.Name, databasePassword, &mgr.Resolved.Source.PostgresPassword)
 	if err != nil {
 		return err
@@ -34,7 +35,7 @@ func PrepareSourceDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 }
 
 func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_main.Manager) error {
-	databasePassword := makePassword(cfg)
+	databasePassword := makePassword(cfg, mgr.Logger)
 	err := setDatabasePassword(ctx, mgr, cfg.CommonConfig.TargetInstance.Name, databasePassword, &mgr.Resolved.Target.PostgresPassword)
 	if err != nil {
 		return err
@@ -45,8 +46,9 @@ func PrepareTargetDatabase(ctx context.Context, cfg *setup.Config, mgr *common_m
 	return nil
 }
 
-func makePassword(cfg *setup.Config) string {
+func makePassword(cfg *setup.Config, logger *slog.Logger) string {
 	if cfg.Development.UnsafePassword {
+		logger.Warn("using unsafe password for database user because of development mode setting")
 		return "testpassword"
 	}
 	return rand.String(14)
