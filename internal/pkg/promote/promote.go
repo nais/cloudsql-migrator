@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
+	"google.golang.org/api/datamigration/v1"
 	"google.golang.org/api/iterator"
 	"time"
 )
@@ -23,18 +24,27 @@ func Promote(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) 
 		return err
 	}
 
-	// TODO: Start the actual promotion
-	//migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(migrationName).Context(ctx).Do()
-	//if err != nil {
-	//	return err
-	//}
-
 	mgr.Logger.Info("start promoting destination", "migrationName", migrationName)
+
+	op, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Promote(mgr.Resolved.GcpComponentURI("migrationJobs", migrationName), &datamigration.PromoteMigrationJobRequest{}).Context(ctx).Do()
+	if err != nil {
+		return fmt.Errorf("failed to promote target instance: %w", err)
+	}
+
+	for !op.Done {
+		time.Sleep(10 * time.Second)
+		mgr.Logger.Info("waiting for promote operation to complete")
+		op, err = mgr.DatamigrationService.Projects.Locations.Operations.Get(op.Name).Context(ctx).Do()
+		if err != nil {
+			return fmt.Errorf("failed to get promote operation status: %w", err)
+		}
+	}
+
 	return nil
 }
 
 func waitForReplicationLagToReachZero(ctx context.Context, mgr *common_main.Manager) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
 	queryClient, err := monitoring.NewQueryClient(ctx)

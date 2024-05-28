@@ -76,7 +76,7 @@ func demoteTargetInstance(ctx context.Context, migrationJob *clouddmspb.Migratio
 	}
 
 	for !op.Done {
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Second)
 		mgr.Logger.Info("waiting for demote operation to complete")
 		op, err = mgr.DatamigrationService.Projects.Locations.Operations.Get(op.Name).Context(ctx).Do()
 		if err != nil {
