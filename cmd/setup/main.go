@@ -6,12 +6,12 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/application"
 	"github.com/nais/cloudsql-migrator/internal/pkg/backup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/database"
+	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
+	"github.com/nais/cloudsql-migrator/internal/pkg/setup"
 	"os"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
-	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
-	"github.com/nais/cloudsql-migrator/internal/pkg/setup/migration"
 	"github.com/sethvargo/go-envconfig"
 )
 
@@ -70,7 +70,7 @@ func main() {
 		os.Exit(8)
 	}
 
-	err = migration.SetupMigration(ctx, cfg, mgr)
+	err = setup.SetupMigration(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to setup migration", "error", err)
 		os.Exit(9)

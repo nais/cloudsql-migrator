@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
-	instance "github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
+	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	autoscaling_v1 "k8s.io/api/autoscaling/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

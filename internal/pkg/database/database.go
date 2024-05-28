@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
-	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
+	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"log/slog"
 	"strconv"

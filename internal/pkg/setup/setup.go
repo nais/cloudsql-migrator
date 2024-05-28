@@ -1,14 +1,14 @@
-package migration
+package setup
 
 import (
 	"context"
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
+	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"time"
 
 	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
-	"github.com/nais/cloudsql-migrator/internal/pkg/setup/instance"
 	"google.golang.org/api/datamigration/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
