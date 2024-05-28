@@ -52,16 +52,22 @@ func main() {
 		os.Exit(3)
 	}
 
+	err = instance.PrepareTargetInstance(ctx, &cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to prepare target instance", "error", err)
+		os.Exit(4)
+	}
+
 	err = promote.Promote(ctx, &cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to promote", "error", err)
-		os.Exit(4)
+		os.Exit(5)
 	}
 
 	err = setAppCredentials(ctx, mgr, &cfg)
 	if err != nil {
 		mgr.Logger.Error("failed to set application password", "error", err)
-		os.Exit(5)
+		os.Exit(6)
 	}
 
 	certPaths, err := instance.CreateSslCert(ctx, &cfg, mgr, mgr.Resolved.Target.Name, &mgr.Resolved.Target.SslCert)
@@ -69,31 +75,31 @@ func main() {
 	err = database.ChangeOwnership(ctx, mgr, certPaths)
 	if err != nil {
 		mgr.Logger.Error("failed to change ownership", "error", err)
-		os.Exit(6)
+		os.Exit(7)
 	}
 
 	err = application.DeleteHelperApplication(ctx, &cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete helper application", "error", err)
-		os.Exit(7)
+		os.Exit(8)
 	}
 
 	err = application.UpdateApplicationInstance(ctx, &cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
-		os.Exit(7)
+		os.Exit(9)
 	}
 
 	err = application.ScaleApplication(ctx, &cfg, mgr, 1)
 	if err != nil {
 		mgr.Logger.Error("failed to scale application", "error", err)
-		os.Exit(8)
+		os.Exit(10)
 	}
 
 	err = backup.CreateBackup(ctx, &cfg, mgr, mgr.Resolved.Target.Name)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
-		os.Exit(9)
+		os.Exit(11)
 	}
 
 }

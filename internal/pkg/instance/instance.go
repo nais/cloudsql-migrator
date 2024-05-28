@@ -9,9 +9,13 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
+	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"net/http"
+	"os"
+	"os/user"
 	"time"
 )
 
@@ -96,7 +100,7 @@ func DefineTargetInstance(cfg *config.Config, app *nais_io_v1alpha1.Application)
 	return targetInstance, nil
 }
 
-func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error {
+func PrepareSourceInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
 	getInstanceCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 
@@ -133,8 +137,16 @@ func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error 
 		Name:  &mgr.Resolved.Target.Name,
 		Value: fmt.Sprintf("%s/32", outgoingIp),
 	}
-
 	sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
+
+	if cfg.Development.AddAuthNetwork {
+		authNetwork, err = createDevelopmentAuthNetwork()
+		if err != nil {
+			return err
+		}
+
+		targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(targetSqlInstance, authNetwork)
+	}
 
 	setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
 	setFlag(sourceSqlInstance, "cloudsql.logical_decoding")
@@ -161,6 +173,104 @@ func PrepareSourceInstance(ctx context.Context, mgr *common_main.Manager) error 
 	}
 	mgr.Logger.Info("source instance prepared for migration")
 	return nil
+}
+
+func PrepareTargetInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
+	getInstanceCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	defer cancel()
+
+	targetSqlInstance, err := mgr.SqlInstanceClient.Get(getInstanceCtx, mgr.Resolved.Target.Name)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	mgr.Logger.Info("preparing target instance for migration")
+
+	targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled = ptr.To(false)
+
+	if cfg.Development.AddAuthNetwork {
+		var authNetwork v1beta1.InstanceAuthorizedNetworks
+		authNetwork, err = createDevelopmentAuthNetwork()
+		if err != nil {
+			return err
+		}
+
+		targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(targetSqlInstance, authNetwork)
+	}
+
+	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(5 * time.Second)
+	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Target.Name)
+	if err != nil {
+		return err
+	}
+
+	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
+		mgr.Logger.Info("waiting for target instance to be ready")
+		time.Sleep(3 * time.Second)
+		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Target.Name)
+		if err != nil {
+			return err
+		}
+	}
+
+	mgr.Logger.Info("target instance prepared for migration")
+	return nil
+}
+
+func createDevelopmentAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) {
+	outgoingIp, err := getOutgoingIp()
+	if err != nil {
+		return v1beta1.InstanceAuthorizedNetworks{}, err
+	}
+	name, err := getDeveloperName()
+	if err != nil {
+		return v1beta1.InstanceAuthorizedNetworks{}, err
+	}
+
+	authNetwork := v1beta1.InstanceAuthorizedNetworks{
+		Name:  &name,
+		Value: fmt.Sprintf("%s/32", outgoingIp),
+	}
+	return authNetwork, nil
+}
+
+func getDeveloperName() (string, error) {
+	u, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+
+	h, err := os.Hostname()
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s@%s", u.Username, h), nil
+}
+
+func getOutgoingIp() (string, error) {
+	httpClient := http.Client{
+		Timeout: 15 * time.Second,
+	}
+	resp, err := httpClient.Get("https://api.ipify.org")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
 }
 
 func appendAuthNetIfNotExists(sqlInstance *v1beta1.SQLInstance, authNetwork v1beta1.InstanceAuthorizedNetworks) []v1beta1.InstanceAuthorizedNetworks {

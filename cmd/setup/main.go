@@ -52,7 +52,7 @@ func main() {
 		os.Exit(5)
 	}
 
-	err = instance.PrepareSourceInstance(ctx, mgr)
+	err = instance.PrepareSourceInstance(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source instance", "error", err)
 		os.Exit(6)
