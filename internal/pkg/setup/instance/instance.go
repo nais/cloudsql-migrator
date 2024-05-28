@@ -25,7 +25,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 		return err
 	}
 
-	targetInstance, err := defineTargetInstance(cfg, app)
+	targetInstance, err := DefineTargetInstance(cfg, app)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 	return nil
 }
 
-func defineTargetInstance(cfg *config.Config, app *nais_io_v1alpha1.Application) (*nais_io_v1.CloudSqlInstance, error) {
+func DefineTargetInstance(cfg *config.Config, app *nais_io_v1alpha1.Application) (*nais_io_v1.CloudSqlInstance, error) {
 	sourceInstance := app.Spec.GCP.SqlInstances[0]
 	targetInstance := sourceInstance.DeepCopy()
 
@@ -91,20 +91,6 @@ func defineTargetInstance(cfg *config.Config, app *nais_io_v1alpha1.Application)
 	}
 	if cfg.TargetInstance.Type != "" {
 		targetInstance.Type = nais_io_v1.CloudSqlInstanceType(cfg.TargetInstance.Type)
-	} else {
-		switch sourceInstance.Type {
-		case nais_io_v1.CloudSqlInstanceTypePostgres11:
-			targetInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres12
-		case nais_io_v1.CloudSqlInstanceTypePostgres12:
-			targetInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres13
-		case nais_io_v1.CloudSqlInstanceTypePostgres13:
-			targetInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres14
-		case nais_io_v1.CloudSqlInstanceTypePostgres14:
-			targetInstance.Type = nais_io_v1.CloudSqlInstanceTypePostgres15
-		default:
-			return nil, fmt.Errorf("no valid target type for instance of type %v", sourceInstance.Type)
-
-		}
 	}
 
 	return targetInstance, nil

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/nais/cloudsql-migrator/internal/pkg/application"
 	"github.com/nais/cloudsql-migrator/internal/pkg/backup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
@@ -45,7 +46,7 @@ func main() {
 
 	mgr.Resolved.Target.Ip = *targetSqlInstance.Status.PublicIpAddress
 
-	err = promote.ScaleApplication(ctx, &cfg, mgr, 0)
+	err = application.ScaleApplication(ctx, &cfg, mgr, 0)
 	if err != nil {
 		mgr.Logger.Error("failed to scale application", "error", err)
 		os.Exit(3)
@@ -71,18 +72,28 @@ func main() {
 		os.Exit(6)
 	}
 
-	// Update application resource in cluster to match new database
+	err = application.DeleteHelperApplication(ctx, &cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to delete helper application", "error", err)
+		os.Exit(7)
+	}
 
-	err = promote.ScaleApplication(ctx, &cfg, mgr, 1)
+	err = application.UpdateApplicationInstance(ctx, &cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to update application", "error", err)
+		os.Exit(7)
+	}
+
+	err = application.ScaleApplication(ctx, &cfg, mgr, 1)
 	if err != nil {
 		mgr.Logger.Error("failed to scale application", "error", err)
-		os.Exit(7)
+		os.Exit(8)
 	}
 
 	err = backup.CreateBackup(ctx, &cfg, mgr, mgr.Resolved.Target.Name)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
-		os.Exit(8)
+		os.Exit(9)
 	}
 
 }

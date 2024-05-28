@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/nais/cloudsql-migrator/internal/pkg/application"
 	"github.com/nais/cloudsql-migrator/internal/pkg/backup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/database"
 	"os"
@@ -45,28 +46,34 @@ func main() {
 		os.Exit(4)
 	}
 
+	err = application.DisableCascadingDelete(ctx, cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to disable cascading delete", "error", err)
+		os.Exit(5)
+	}
+
 	err = instance.PrepareSourceInstance(ctx, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source instance", "error", err)
-		os.Exit(5)
+		os.Exit(6)
 	}
 
 	err = database.PrepareSourceDatabase(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source database", "error", err)
-		os.Exit(6)
+		os.Exit(7)
 	}
 
 	err = database.PrepareTargetDatabase(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare target database", "error", err)
-		os.Exit(7)
+		os.Exit(8)
 	}
 
 	err = migration.SetupMigration(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to setup migration", "error", err)
-		os.Exit(8)
+		os.Exit(9)
 	}
 
 }

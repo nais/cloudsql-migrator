@@ -23,6 +23,7 @@ type GenericClient[T interface {
 	*P
 }, P any] interface {
 	Get(ctx context.Context, name string) (*P, error)
+	Delete(ctx context.Context, name string) error
 	Update(ctx context.Context, obj *P) (*P, error)
 	Create(ctx context.Context, obj *P) (*P, error)
 }
@@ -53,6 +54,15 @@ func (g *genericClient[T, P]) Get(ctx context.Context, name string) (*P, error) 
 	}
 
 	return obj, nil
+}
+
+func (g *genericClient[T, P]) Delete(ctx context.Context, name string) error {
+	err := g.client.Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (g *genericClient[T, P]) Update(ctx context.Context, obj *P) (*P, error) {
