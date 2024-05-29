@@ -2,12 +2,14 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	autoscaling_v1 "k8s.io/api/autoscaling/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, replicas int32) error {
@@ -50,6 +52,24 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, mgr *com
 	_, err = mgr.AppClient.Update(ctx, app)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func UpdateApplicationUser(ctx context.Context, mgr *common_main.Manager) error {
+	mgr.Logger.Info("updating application user")
+
+	user, err := mgr.SqlUserClient.Get(ctx, mgr.Resolved.Target.AppUsername)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	user.ObjectMeta.Labels["migrator.nais.io/touched"] = time.Now().Format(time.RFC3339)
+
+	_, err = mgr.SqlUserClient.Update(ctx, user)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
 	}
 
 	return nil

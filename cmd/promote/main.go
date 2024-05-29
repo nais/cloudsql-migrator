@@ -86,18 +86,23 @@ func main() {
 		os.Exit(9)
 	}
 
+	err = application.UpdateApplicationUser(ctx, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to update application user", "error", err)
+		os.Exit(10)
+	}
+
 	err = application.ScaleApplication(ctx, &cfg, mgr, 1)
 	if err != nil {
 		mgr.Logger.Error("failed to scale application", "error", err)
-		os.Exit(10)
+		os.Exit(11)
 	}
 
 	err = backup.CreateBackup(ctx, &cfg, mgr, mgr.Resolved.Target.Name)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
-		os.Exit(11)
+		os.Exit(12)
 	}
-
 }
 
 func setAppCredentials(ctx context.Context, mgr *common_main.Manager, cfg *config.Config) error {

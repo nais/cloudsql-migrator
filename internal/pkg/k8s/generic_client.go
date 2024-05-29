@@ -34,6 +34,7 @@ type AppClient GenericClient[*naisv1alpha1.Application, naisv1alpha1.Application
 type SqlInstanceClient GenericClient[*v1beta1.SQLInstance, v1beta1.SQLInstance]
 type SqlSslCertClient GenericClient[*v1beta1.SQLSSLCert, v1beta1.SQLSSLCert]
 type SqlDatabaseClient GenericClient[*v1beta1.SQLDatabase, v1beta1.SQLDatabase]
+type SqlUserClient GenericClient[*v1beta1.SQLUser, v1beta1.SQLUser]
 
 func New[T interface {
 	runtime.Object
