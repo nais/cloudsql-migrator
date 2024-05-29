@@ -70,30 +70,41 @@ func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 			},
 		}
 
-		_, err = mgr.AppClient.Create(ctx, dummyApp)
+		app, err = mgr.AppClient.Create(ctx, dummyApp)
 	}
 	if err != nil {
 		return err
 	}
-
 	mgr.Logger.Info("started creation of target instance", "helperApp", helperName)
-
-	var exists bool
-	for !exists {
+	for app.Status.DeploymentRolloutStatus != "complete" {
 		mgr.Logger.Info("waiting for dummy app rollout")
 		time.Sleep(5 * time.Second)
-		exists, err = mgr.SqlDatabaseClient.ExistsByLabel(ctx, "app="+helperName)
+		app, err = mgr.AppClient.Get(ctx, helperName)
 		if err != nil {
-			return fmt.Errorf("error listing sql databases: %w", err)
+			return err
 		}
 	}
 
-	mgr.Logger.Info("deleting databases from target instance")
+	mgr.Logger.Info("deleting kubernetes database resource for target instance")
 	err = mgr.SqlDatabaseClient.DeleteCollection(ctx, metav1.ListOptions{
 		LabelSelector: "app=" + helperName,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to delete databases from target instance: %w", err)
+	}
+
+	mgr.Logger.Info("deleting database in target instance")
+	op, err := mgr.SqlAdminService.Databases.Delete(mgr.Resolved.GcpProjectId, mgr.Resolved.Target.Name, mgr.Resolved.DatabaseName).Context(ctx).Do()
+	if err != nil {
+		return fmt.Errorf("failed to delete database from target instance: %w", err)
+	}
+
+	for op.Status != "DONE" {
+		time.Sleep(1 * time.Second)
+		op, err = mgr.SqlAdminService.Operations.Get(mgr.Resolved.GcpProjectId, op.Name).Context(ctx).Do()
+		if err != nil {
+			return fmt.Errorf("failed to get delete operation status: %w", err)
+		}
 	}
 
 	return nil
