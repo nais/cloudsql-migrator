@@ -66,10 +66,6 @@ func (i *Instance) ResolveAppUsername(secret *v1.Secret) error {
 	return fmt.Errorf("unable to find password in secret %s", secret.Name)
 }
 
-func (r *Resolved) ResolveSourceAppUsername(app *nais_io_v1alpha1.Application) {
-	r.Source.AppUsername = app.ObjectMeta.Name
-}
-
 func (r *Resolved) ResolveSourceInstanceName(app *nais_io_v1alpha1.Application) error {
 	spec := app.Spec
 	if spec.GCP != nil {

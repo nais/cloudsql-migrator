@@ -117,9 +117,12 @@ func resolveClusterInformation(ctx context.Context, cfg *config.Config, clientse
 		return err
 	}
 
-	r.ResolveSourceAppUsername(app)
-
 	secret, err := clientset.CoreV1().Secrets(cfg.Namespace).Get(ctx, "google-sql-"+cfg.ApplicationName, v1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	err = r.Source.ResolveAppUsername(secret)
 	if err != nil {
 		return err
 	}

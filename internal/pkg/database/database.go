@@ -106,6 +106,7 @@ func installExtension(ctx context.Context, mgr *common_main.Manager, certPaths *
 	}
 
 	for _, dbInfo := range dbInfos {
+		logger.Info("connecting to database", "database", dbInfo.DatabaseName, "user", dbInfo.Username)
 		dbConn, err := createConnection(
 			mgr.Resolved.Source.Ip,
 			dbInfo.Username,
@@ -168,7 +169,7 @@ func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, certPaths *i
 	return nil
 }
 
-func createConnection(instanceIp string, username string, password string, databaseName string, rootCertPath string, keyPath string, certPath string, logger *slog.Logger) (*sql.DB, error) {
+func createConnection(instanceIp, username, password, databaseName, rootCertPath, keyPath, certPath string, logger *slog.Logger) (*sql.DB, error) {
 	connection := fmt.Sprint(
 		" host="+instanceIp,
 		" port="+strconv.Itoa(config.DatabasePort),
