@@ -52,6 +52,8 @@ func main() {
 		os.Exit(3)
 	}
 
+	// TODO: Check migration job phase
+
 	err = promote.Promote(ctx, &cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to promote", "error", err)

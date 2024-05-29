@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
+	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"google.golang.org/api/datamigration/v1"
 	"google.golang.org/api/iterator"
 	"time"
@@ -38,6 +39,11 @@ func Promote(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) 
 		if err != nil {
 			return fmt.Errorf("failed to get promote operation status: %w", err)
 		}
+	}
+
+	err = instance.UpdateTargetInstanceAfterPromotion(ctx, mgr)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -78,7 +84,7 @@ func waitForReplicationLagToReachZero(ctx context.Context, mgr *common_main.Mana
 					return fmt.Errorf("failed to fetch time series data: %w", err)
 				}
 				mgr.Logger.Debug("no more data in iterator")
-				break
+				return nil
 			}
 			value := data.PointData[0].Values[0].GetInt64Value()
 			if value == 0 {

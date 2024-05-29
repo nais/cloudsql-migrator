@@ -242,6 +242,39 @@ func PrepareTargetInstance(ctx context.Context, cfg *config.Config, mgr *common_
 	return nil
 }
 
+func UpdateTargetInstanceAfterPromotion(ctx context.Context, mgr *common_main.Manager) error {
+	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Target.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get target instance: %w", err)
+	}
+
+	targetSqlInstance.Spec.InstanceType = ptr.To("CLOUD_SQL_INSTANCE")
+	targetSqlInstance.Spec.MasterInstanceRef = nil
+
+	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(5 * time.Second)
+	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Target.Name)
+	if err != nil {
+		return err
+	}
+
+	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
+		mgr.Logger.Info("waiting for target instance to be ready")
+		time.Sleep(3 * time.Second)
+		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Target.Name)
+		if err != nil {
+			return err
+		}
+	}
+
+	mgr.Logger.Info("target instance updated after promotion")
+	return nil
+}
+
 func createDevelopmentAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) {
 	outgoingIp, err := getOutgoingIp()
 	if err != nil {
