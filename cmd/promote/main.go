@@ -52,12 +52,6 @@ func main() {
 		os.Exit(3)
 	}
 
-	err = instance.PrepareTargetInstance(ctx, &cfg, mgr)
-	if err != nil {
-		mgr.Logger.Error("failed to prepare target instance", "error", err)
-		os.Exit(4)
-	}
-
 	err = promote.Promote(ctx, &cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to promote", "error", err)

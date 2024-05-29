@@ -64,16 +64,22 @@ func main() {
 		os.Exit(7)
 	}
 
+	err = instance.PrepareTargetInstance(ctx, cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to prepare target instance", "error", err)
+		os.Exit(8)
+	}
+
 	err = database.PrepareTargetDatabase(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare target database", "error", err)
-		os.Exit(8)
+		os.Exit(9)
 	}
 
 	err = setup.SetupMigration(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to setup migration", "error", err)
-		os.Exit(9)
+		os.Exit(10)
 	}
 
 }
