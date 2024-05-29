@@ -35,6 +35,7 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Man
 
 	sqlSslCert, err := mgr.SqlSslCertClient.Get(ctx, helperName)
 	if errors.IsNotFound(err) {
+		logger.Info("creating new ssl certificate")
 		sqlSslCert, err = mgr.SqlSslCertClient.Create(ctx, &v1beta1.SQLSSLCert{
 			TypeMeta: v1.TypeMeta{
 				APIVersion: "sql.cnrm.cloud.google.com/v1beta1",
