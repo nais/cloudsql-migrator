@@ -63,7 +63,7 @@ func DeleteHelperApplication(ctx context.Context, cfg *config.Config, mgr *commo
 
 	mgr.Logger.Info("deleting migration application", "name", helperName)
 
-	err = mgr.AppClient.Delete(ctx, cfg.ApplicationName)
+	err = mgr.AppClient.Delete(ctx, helperName)
 	if err != nil {
 		return err
 	}
