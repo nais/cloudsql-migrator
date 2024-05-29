@@ -27,6 +27,7 @@ type Manager struct {
 	AppClient            k8s.AppClient
 	SqlInstanceClient    k8s.SqlInstanceClient
 	SqlSslCertClient     k8s.SqlSslCertClient
+	SqlDatabaseClient    k8s.SqlDatabaseClient
 	SqlAdminService      *sqladmin.Service
 	DatamigrationService *datamigration.Service
 	DBMigrationClient    *dms.DataMigrationClient
@@ -42,6 +43,7 @@ func Main(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Manage
 	appClient := k8s.New[*naisv1alpha1.Application](dynamicClient, cfg.Namespace, naisv1alpha1.GroupVersion.WithResource("applications"))
 	sqlInstanceClient := k8s.New[*v1beta1.SQLInstance](dynamicClient, cfg.Namespace, v1beta1.SchemeGroupVersion.WithResource("sqlinstances"))
 	sqlSslCertClient := k8s.New[*v1beta1.SQLSSLCert](dynamicClient, cfg.Namespace, v1beta1.SchemeGroupVersion.WithResource("sqlsslcerts"))
+	sqlDatabaseClient := k8s.New[*v1beta1.SQLDatabase](dynamicClient, cfg.Namespace, v1beta1.SchemeGroupVersion.WithResource("sqldatabases"))
 
 	sqlAdminService, err := sqladmin.NewService(ctx)
 	if err != nil {
@@ -76,6 +78,7 @@ func Main(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Manage
 		AppClient:            appClient,
 		SqlInstanceClient:    sqlInstanceClient,
 		SqlSslCertClient:     sqlSslCertClient,
+		SqlDatabaseClient:    sqlDatabaseClient,
 		SqlAdminService:      sqlAdminService,
 		DatamigrationService: datamigrationService,
 		DBMigrationClient:    dbMigrationclient,

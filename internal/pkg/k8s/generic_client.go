@@ -24,13 +24,16 @@ type GenericClient[T interface {
 }, P any] interface {
 	Get(ctx context.Context, name string) (*P, error)
 	Delete(ctx context.Context, name string) error
+	DeleteCollection(ctx context.Context, listOptions metav1.ListOptions) error
 	Update(ctx context.Context, obj *P) (*P, error)
 	Create(ctx context.Context, obj *P) (*P, error)
+	ExistsByLabel(ctx context.Context, label string) (bool, error)
 }
 
 type AppClient GenericClient[*naisv1alpha1.Application, naisv1alpha1.Application]
 type SqlInstanceClient GenericClient[*v1beta1.SQLInstance, v1beta1.SQLInstance]
 type SqlSslCertClient GenericClient[*v1beta1.SQLSSLCert, v1beta1.SQLSSLCert]
+type SqlDatabaseClient GenericClient[*v1beta1.SQLDatabase, v1beta1.SQLDatabase]
 
 func New[T interface {
 	runtime.Object
@@ -62,6 +65,14 @@ func (g *genericClient[T, P]) Delete(ctx context.Context, name string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (g *genericClient[T, P]) DeleteCollection(ctx context.Context, listOptions metav1.ListOptions) error {
+	err := g.client.DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -105,4 +116,13 @@ func (g *genericClient[T, P]) Create(ctx context.Context, obj *P) (*P, error) {
 	}
 
 	return obj, nil
+}
+
+func (g *genericClient[T, P]) ExistsByLabel(ctx context.Context, label string) (bool, error) {
+	list, err := g.client.List(ctx, metav1.ListOptions{LabelSelector: label})
+	if err != nil {
+		return false, err
+	}
+
+	return len(list.Items) > 0, nil
 }

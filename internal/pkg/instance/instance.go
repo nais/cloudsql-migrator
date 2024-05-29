@@ -78,6 +78,24 @@ func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 
 	mgr.Logger.Info("started creation of target instance", "helperApp", helperName)
 
+	var exists bool
+	for !exists {
+		mgr.Logger.Info("waiting for dummy app rollout")
+		time.Sleep(5 * time.Second)
+		exists, err = mgr.SqlDatabaseClient.ExistsByLabel(ctx, "app="+helperName)
+		if err != nil {
+			return fmt.Errorf("error listing sql databases: %w", err)
+		}
+	}
+
+	mgr.Logger.Info("deleting databases from target instance")
+	err = mgr.SqlDatabaseClient.DeleteCollection(ctx, metav1.ListOptions{
+		LabelSelector: "app=" + helperName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete databases from target instance: %w", err)
+	}
+
 	return nil
 }
 
