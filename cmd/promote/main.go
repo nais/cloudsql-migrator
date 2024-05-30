@@ -68,6 +68,12 @@ func main() {
 
 	certPaths, err := instance.CreateSslCert(ctx, &cfg, mgr, mgr.Resolved.Target.Name, &mgr.Resolved.Target.SslCert)
 
+	err = application.UpdateApplicationUser(ctx, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to update application user", "error", err)
+		os.Exit(10)
+	}
+
 	err = database.ChangeOwnership(ctx, mgr, certPaths)
 	if err != nil {
 		mgr.Logger.Error("failed to change ownership", "error", err)
@@ -84,12 +90,6 @@ func main() {
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
 		os.Exit(9)
-	}
-
-	err = application.UpdateApplicationUser(ctx, mgr)
-	if err != nil {
-		mgr.Logger.Error("failed to update application user", "error", err)
-		os.Exit(10)
 	}
 
 	err = application.ScaleApplication(ctx, &cfg, mgr, 1)

@@ -9,6 +9,7 @@ import (
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	autoscaling_v1 "k8s.io/api/autoscaling/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strconv"
 	"time"
 )
 
@@ -65,9 +66,11 @@ func UpdateApplicationUser(ctx context.Context, mgr *common_main.Manager) error 
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
-	user.ObjectMeta.Labels["migrator.nais.io/touched"] = time.Now().Format(time.RFC3339)
+	// update label and annotation to force update of user in instance
+	user.ObjectMeta.Labels["migrator.nais.io/touched"] = strconv.FormatInt(time.Now().Unix(), 10)
+	user.ObjectMeta.Annotations["cnrm.cloud.google.com/observed-secret-versions"] = "{}"
 
-	_, err = mgr.SqlUserClient.Update(ctx, user)
+	user, err = mgr.SqlUserClient.Update(ctx, user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
