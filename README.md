@@ -7,7 +7,7 @@ Tools to migrate between CloudSQL instances in the nais platform.
 
 Three phases: Setup, Promotion, Cleanup
 
-## Phase 1: Setup
+### Phase 1: Setup
 
 1. Take an explicit backup before starting
 2. Set up a new SQLInstance that is the way you want it to be
@@ -37,7 +37,7 @@ Three phases: Setup, Promotion, Cleanup
    - Start migration job
    - Wait for initial load replication...
 
-## Phase 2: Promotion
+### Phase 2: Promotion
 
 When the replica is up-to-date
 
@@ -50,7 +50,7 @@ When the replica is up-to-date
 6. Scale up the app to the desired number of replicas
 7. Take an explicit backup after upgrading
 
-## Phase 3: Cleanup
+### Phase 3: Cleanup
 
 Once the migration is verified and everything is working as it should
 
@@ -61,3 +61,16 @@ Once the migration is verified and everything is working as it should
    - SQLInstance
    - SQLUSers
    - SQLSSLCert
+
+## Local development
+
+When running locally, you must have a working kubernetes config with current-context for the cluster and namespace you want to work with.
+You need to log in using cloud and update ADC with the correct project and user.
+
+It is recommended to set the following environment variables:
+
+| Variable                                 | Description                                                                                                                                                                    |
+|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `DEVELOPMENT_MODE_SKIP_BACKUP=true`      | Skip creating backups. These take long to create, and if developing, the backup is probably not needed.                                                                        |
+| `DEVELOPMENT_MODE_UNSAFE_PASSWORD=true`  | During setup/promotion, the password for the `postgres` user is changed. This setting makes the password always be `testpassword`.                                             |
+| `DEVELOPMENT_MODE_ADD_AUTH_NETWORK=true` | Parts of setup/promotion requires connecting to the instances. This settings adds the outgoing IP of the machine running setup/promote to authorized networks on the instance. |
