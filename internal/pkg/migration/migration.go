@@ -1,4 +1,4 @@
-package setup
+package migration
 
 import (
 	"context"
@@ -20,7 +20,7 @@ func SetupMigration(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 		return err
 	}
 
-	err = deleteMigrationJob(ctx, migrationName, mgr)
+	err = DeleteMigrationJob(ctx, migrationName, mgr)
 	if err != nil {
 	}
 
@@ -47,7 +47,7 @@ func SetupMigration(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 	return nil
 }
 
-func deleteMigrationJob(ctx context.Context, migrationName string, mgr *common_main.Manager) error {
+func DeleteMigrationJob(ctx context.Context, migrationName string, mgr *common_main.Manager) error {
 	mgr.Logger.Info("deleting previous migration job", "name", migrationName)
 
 	op, err := mgr.DBMigrationClient.DeleteMigrationJob(ctx, &clouddmspb.DeleteMigrationJobRequest{

@@ -7,7 +7,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/backup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/database"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
-	"github.com/nais/cloudsql-migrator/internal/pkg/setup"
+	"github.com/nais/cloudsql-migrator/internal/pkg/migration"
 	"os"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -76,7 +76,7 @@ func main() {
 		os.Exit(9)
 	}
 
-	err = setup.SetupMigration(ctx, cfg, mgr)
+	err = migration.SetupMigration(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to setup migration", "error", err)
 		os.Exit(10)
