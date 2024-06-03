@@ -46,24 +46,28 @@ func main() {
 
 	mgr.Resolved.Target.Ip = *targetSqlInstance.Status.PublicIpAddress
 
+	err = promote.CheckReadyForPromotion(ctx, mgr)
+	if err != nil {
+		mgr.Logger.Error("migration is not ready for promotion", "error", err)
+		os.Exit(2)
+	}
+
 	err = application.ScaleApplication(ctx, &cfg, mgr, 0)
 	if err != nil {
 		mgr.Logger.Error("failed to scale application", "error", err)
 		os.Exit(3)
 	}
 
-	// TODO: Check migration job phase
-
-	err = promote.Promote(ctx, &cfg, mgr)
+	err = promote.Promote(ctx, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to promote", "error", err)
-		os.Exit(5)
+		os.Exit(4)
 	}
 
 	err = setAppCredentials(ctx, mgr, &cfg)
 	if err != nil {
 		mgr.Logger.Error("failed to set application password", "error", err)
-		os.Exit(6)
+		os.Exit(5)
 	}
 
 	certPaths, err := instance.CreateSslCert(ctx, &cfg, mgr, mgr.Resolved.Target.Name, &mgr.Resolved.Target.SslCert)
@@ -71,7 +75,7 @@ func main() {
 	err = application.UpdateApplicationUser(ctx, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application user", "error", err)
-		os.Exit(10)
+		os.Exit(6)
 	}
 
 	err = database.ChangeOwnership(ctx, mgr, certPaths)
@@ -95,13 +99,13 @@ func main() {
 	err = application.ScaleApplication(ctx, &cfg, mgr, 1)
 	if err != nil {
 		mgr.Logger.Error("failed to scale application", "error", err)
-		os.Exit(11)
+		os.Exit(10)
 	}
 
 	err = backup.CreateBackup(ctx, &cfg, mgr, mgr.Resolved.Target.Name)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
-		os.Exit(12)
+		os.Exit(11)
 	}
 }
 

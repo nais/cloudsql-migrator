@@ -7,20 +7,43 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
-	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"google.golang.org/api/datamigration/v1"
 	"google.golang.org/api/iterator"
 	"time"
 )
 
-func Promote(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
+func CheckReadyForPromotion(ctx context.Context, mgr *common_main.Manager) error {
 	migrationName, err := mgr.Resolved.MigrationName()
 	if err != nil {
 		return err
 	}
 
+	mgr.Logger.Info("checking if migration job is ready for promotion", "migrationName", migrationName)
+
+	migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(mgr.Resolved.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
+	if err != nil {
+		return fmt.Errorf("failed to get migration job: %w", err)
+	}
+
+	if migrationJob.State != "RUNNING" {
+		return fmt.Errorf("migration job is not running: %s", migrationJob.State)
+	}
+
+	if migrationJob.Phase != "CDC" && migrationJob.Phase != "READY_FOR_PROMOTE" {
+		return fmt.Errorf("migration job is not ready for promotion: %s", migrationJob.Phase)
+	}
+
 	err = waitForReplicationLagToReachZero(ctx, mgr)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Promote(ctx context.Context, mgr *common_main.Manager) error {
+	migrationName, err := mgr.Resolved.MigrationName()
 	if err != nil {
 		return err
 	}
@@ -78,14 +101,12 @@ func waitForReplicationLagToReachZero(ctx context.Context, mgr *common_main.Mana
 
 		var data *monitoringpb.TimeSeriesData
 		data, err = it.Next()
-		for {
-			if err != nil {
-				if !errors.Is(err, iterator.Done) {
-					return fmt.Errorf("failed to fetch time series data: %w", err)
-				}
-				mgr.Logger.Debug("no more data in iterator")
-				return nil
+		if err != nil {
+			if !errors.Is(err, iterator.Done) {
+				return fmt.Errorf("failed to fetch time series data: %w", err)
 			}
+			mgr.Logger.Debug("no more data in iterator")
+		} else {
 			value := data.PointData[0].Values[0].GetInt64Value()
 			if value == 0 {
 				mgr.Logger.Info("replication lag reached zero")
