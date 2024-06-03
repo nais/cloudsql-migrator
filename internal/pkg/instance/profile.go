@@ -28,6 +28,18 @@ func CreateConnectionProfiles(ctx context.Context, cfg *config.Config, mgr *comm
 	return nil
 }
 
+func CleanupConnectionProfiles(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
+	for _, prefix := range []string{"source", "target"} {
+		profileName := fmt.Sprintf("%s-%s", prefix, cfg.ApplicationName)
+		_, err := deleteConnectionProfile(ctx, profileName, mgr)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func createConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb.ConnectionProfile, mgr *common_main.Manager) error {
 	createOperations := make([]*clouddms.CreateConnectionProfileOperation, 0, 2)
 	for i, cp := range cps {
@@ -68,15 +80,12 @@ func deleteOldConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb
 	for i, cp := range cps {
 		profileName := fmt.Sprintf("%s-%s", i, cp.Name)
 
-		mgr.Logger.Info("deleting previous connection profile", "name", profileName)
-		deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
-			Name: mgr.Resolved.GcpComponentURI("connectionProfiles", profileName),
-		})
+		deleteOperation, err := deleteConnectionProfile(ctx, profileName, mgr)
 		if err != nil {
-			if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
-				return fmt.Errorf("unable to delete previous connection profile: %w", err)
-			}
-		} else {
+			return fmt.Errorf("failed to delete connection profile: %w", err)
+		}
+
+		if deleteOperation != nil {
 			deleteOperations = append(deleteOperations, deleteOperation)
 		}
 	}
@@ -88,6 +97,20 @@ func deleteOldConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb
 		}
 	}
 	return nil
+}
+
+func deleteConnectionProfile(ctx context.Context, profileName string, mgr *common_main.Manager) (*clouddms.DeleteConnectionProfileOperation, error) {
+	mgr.Logger.Info("deleting connection profile", "name", profileName)
+	deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
+		Name: mgr.Resolved.GcpComponentURI("connectionProfiles", profileName),
+	})
+	if err != nil {
+		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
+			return nil, fmt.Errorf("unable to delete connection profile: %w", err)
+		}
+		return nil, nil
+	}
+	return deleteOperation, nil
 }
 
 func getDmsConnectionProfiles(cfg *config.Config, mgr *common_main.Manager) map[string]*clouddmspb.ConnectionProfile {

@@ -2,6 +2,7 @@ package instance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	_ "github.com/lib/pq"
@@ -9,8 +10,9 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
+	"google.golang.org/api/googleapi"
 	"io"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"net/http"
@@ -42,7 +44,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 	}
 
 	dummyApp, err := mgr.AppClient.Get(ctx, helperName)
-	if errors.IsNotFound(err) {
+	if k8s_errors.IsNotFound(err) {
 		dummyApp = &nais_io_v1alpha1.Application{
 			TypeMeta: app.TypeMeta,
 			ObjectMeta: metav1.ObjectMeta{
@@ -140,7 +142,7 @@ func PrepareSourceInstance(ctx context.Context, cfg *config.Config, mgr *common_
 		time.Sleep(5 * time.Second)
 		targetSqlInstance, err = mgr.SqlInstanceClient.Get(getInstanceCtx, mgr.Resolved.Target.Name)
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !k8s_errors.IsNotFound(err) {
 				return err
 			}
 		}
@@ -210,7 +212,7 @@ func PrepareTargetInstance(ctx context.Context, cfg *config.Config, mgr *common_
 
 	targetSqlInstance, err := mgr.SqlInstanceClient.Get(getInstanceCtx, mgr.Resolved.Target.Name)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !k8s_errors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -283,6 +285,28 @@ func UpdateTargetInstanceAfterPromotion(ctx context.Context, mgr *common_main.Ma
 	}
 
 	mgr.Logger.Info("target instance updated after promotion")
+	return nil
+}
+
+func DeleteInstance(ctx context.Context, instanceName string, mgr *common_main.Manager) error {
+	instancesService := mgr.SqlAdminService.Instances
+
+	mgr.Logger.Debug("checking for existence before deletion")
+	_, err := instancesService.Get(mgr.Resolved.GcpProjectId, instanceName).Context(ctx).Do()
+	if err != nil {
+		var ae *googleapi.Error
+		if errors.As(err, &ae) && ae.Code == http.StatusNotFound {
+			mgr.Logger.Info("instance not found, skipping deletion")
+			return nil
+		}
+		return fmt.Errorf("failed to get instance: %w", err)
+	}
+
+	mgr.Logger.Info("deleting instance", "name", instanceName)
+	_, err = instancesService.Delete(mgr.Resolved.GcpProjectId, instanceName).Context(ctx).Do()
+	if err != nil {
+		return fmt.Errorf("failed to delete instance: %w", err)
+	}
 	return nil
 }
 
