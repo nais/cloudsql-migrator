@@ -176,7 +176,7 @@ func PrepareSourceInstance(ctx context.Context, cfg *config.Config, mgr *common_
 			return err
 		}
 
-		targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(targetSqlInstance, authNetwork)
+		sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
 	}
 
 	setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
