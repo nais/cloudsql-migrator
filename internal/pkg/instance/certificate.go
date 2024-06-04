@@ -2,6 +2,7 @@ package instance
 
 import (
 	"context"
+	"fmt"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -13,12 +14,6 @@ import (
 	"time"
 )
 
-const (
-	CertPath     = "/tmp/client.crt"
-	KeyPath      = "/tmp/client.key"
-	RootCertPath = "/tmp/root.crt"
-)
-
 type CertPaths struct {
 	RootCertPath string
 	CertPath     string
@@ -26,7 +21,7 @@ type CertPaths struct {
 }
 
 func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, instance string, sslCert *resolved.SslCert) (*CertPaths, error) {
-	helperName, err := common_main.HelperAppName(instance)
+	helperName, err := common_main.HelperName(instance)
 	if err != nil {
 		return nil, err
 	}
@@ -77,34 +72,40 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Man
 	sslCert.SslClientCert = *sqlSslCert.Status.Cert
 	sslCert.SslClientKey = *sqlSslCert.Status.PrivateKey
 
-	err = createTempFiles(&sslCert.SslClientCert, &sslCert.SslClientKey, &sslCert.SslCaCert)
+	rootCertPath, err := createTempFile(sslCert.SslCaCert, "root.crt")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create root cert file: %w", err)
 	}
+
+	certPath, err := createTempFile(sslCert.SslClientCert, "client.crt")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cert file: %w", err)
+	}
+
+	keyPath, err := createTempFile(sslCert.SslClientKey, "client.key")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key file: %w", err)
+	}
+
 	logger.Info("ssl certificate created successfully")
 
 	return &CertPaths{
-		RootCertPath: RootCertPath,
-		CertPath:     CertPath,
-		KeyPath:      KeyPath,
+		RootCertPath: rootCertPath,
+		CertPath:     certPath,
+		KeyPath:      keyPath,
 	}, nil
 }
 
-func createTempFiles(cert, key, rootCert *string) error {
-	err := os.WriteFile(CertPath, []byte(*cert), 0644)
+func createTempFile(data, filename string) (string, error) {
+	f, err := os.CreateTemp("", filename)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
 
-	err = os.WriteFile(KeyPath, []byte(*key), 0600)
+	_, err = f.WriteString(data)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("failed to write to temp file: %w", err)
 	}
 
-	err = os.WriteFile(RootCertPath, []byte(*rootCert), 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return f.Name(), nil
 }

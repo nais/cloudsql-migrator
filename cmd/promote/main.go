@@ -71,47 +71,51 @@ func main() {
 	}
 
 	certPaths, err := instance.CreateSslCert(ctx, &cfg, mgr, mgr.Resolved.Target.Name, &mgr.Resolved.Target.SslCert)
+	if err != nil {
+		mgr.Logger.Error("failed to create ssl certificate", "error", err)
+		os.Exit(6)
+	}
 
 	err = application.UpdateApplicationUser(ctx, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application user", "error", err)
-		os.Exit(6)
+		os.Exit(7)
 	}
 
 	err = database.ChangeOwnership(ctx, mgr, certPaths)
 	if err != nil {
 		mgr.Logger.Error("failed to change ownership", "error", err)
-		os.Exit(7)
+		os.Exit(8)
 	}
 
 	err = application.DeleteHelperApplication(ctx, &cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete helper application", "error", err)
-		os.Exit(8)
+		os.Exit(9)
 	}
 
 	err = application.UpdateApplicationInstance(ctx, &cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
-		os.Exit(9)
+		os.Exit(10)
 	}
 
 	err = application.ScaleApplication(ctx, &cfg, mgr, 1)
 	if err != nil {
 		mgr.Logger.Error("failed to scale application", "error", err)
-		os.Exit(10)
+		os.Exit(11)
 	}
 
 	err = backup.CreateBackup(ctx, &cfg, mgr, mgr.Resolved.Target.Name)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
-		os.Exit(11)
+		os.Exit(12)
 	}
 }
 
 func setAppCredentials(ctx context.Context, mgr *common_main.Manager, cfg *config.Config) error {
 	clientSet := mgr.K8sClient
-	helperName, err := common_main.HelperAppName(cfg.ApplicationName)
+	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
 		return err
 	}

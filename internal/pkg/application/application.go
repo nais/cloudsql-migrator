@@ -79,7 +79,7 @@ func UpdateApplicationUser(ctx context.Context, mgr *common_main.Manager) error 
 }
 
 func DeleteHelperApplication(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
-	helperName, err := common_main.HelperAppName(cfg.ApplicationName)
+	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
 		return err
 	}

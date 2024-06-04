@@ -167,8 +167,8 @@ func newK8sClient() (kubernetes.Interface, dynamic.Interface, error) {
 	return clientset, dynamicClient, nil
 }
 
-func HelperAppName(applicationName string) (string, error) {
-	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", applicationName), 63)
+func HelperName(basename string) (string, error) {
+	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", basename), 63)
 	if err != nil {
 		return "", err
 	}

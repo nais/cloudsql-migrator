@@ -38,7 +38,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 
 	mgr.Resolved.Target.Name = targetInstance.Name
 
-	helperName, err := common_main.HelperAppName(cfg.ApplicationName)
+	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
 		return err
 	}
