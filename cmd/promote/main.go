@@ -76,30 +76,31 @@ func main() {
 		os.Exit(6)
 	}
 
-	err = application.UpdateApplicationUser(ctx, mgr)
-	if err != nil {
-		mgr.Logger.Error("failed to update application user", "error", err)
-		os.Exit(7)
-	}
-
 	err = database.ChangeOwnership(ctx, mgr, certPaths)
 	if err != nil {
 		mgr.Logger.Error("failed to change ownership", "error", err)
-		os.Exit(8)
+		os.Exit(7)
 	}
 
 	err = application.DeleteHelperApplication(ctx, &cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete helper application", "error", err)
-		os.Exit(9)
+		os.Exit(8)
 	}
 
 	err = application.UpdateApplicationInstance(ctx, &cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
+		os.Exit(9)
+	}
+
+	err = application.UpdateApplicationUser(ctx, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to update application user", "error", err)
 		os.Exit(10)
 	}
 
+	// TODO: Is this needed?
 	err = application.ScaleApplication(ctx, &cfg, mgr, 1)
 	if err != nil {
 		mgr.Logger.Error("failed to scale application", "error", err)

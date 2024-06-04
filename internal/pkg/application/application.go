@@ -70,6 +70,7 @@ func UpdateApplicationUser(ctx context.Context, mgr *common_main.Manager) error 
 	user.ObjectMeta.Labels["migrator.nais.io/touched"] = strconv.FormatInt(time.Now().Unix(), 10)
 	user.ObjectMeta.Annotations["cnrm.cloud.google.com/observed-secret-versions"] = "{}"
 
+	// TODO: Retry if "the object has been modified; please apply your changes to the latest version and try again"
 	user, err = mgr.SqlUserClient.Update(ctx, user)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
