@@ -1,11 +1,11 @@
 CloudSQL-migrator
 =================
 
-Tools to migrate between Cloud SQL instances in the nais platform.
+Tool to migrate between Cloud SQL instances in the nais platform.
 
 ## How does it work
 
-We have three phases during the migration operation: Setup, Promotion, Cleanup
+Three phases are executed during the migration operation: Setup, Promotion, Cleanup
 
 Setup creates the new SQL instance based on the parameters provided for the migration job. These parameters are described in detail later.
 The connection profiles and the migration job itself is also created in this phase, and when finished is running the new instance as a replica of
@@ -20,6 +20,23 @@ Cleanup removes unused kubernetes resources and google cloud resources. This pha
 is working as expected.
 
 Before setup and after promotion we create a backup of the instance in use.
+
+## How to use
+
+### Command line
+
+Run the application from command line with environment variables set. 
+
+#### Parameters
+| Variable             | Description                     | Required |
+|----------------------|---------------------------------|----------|
+| APP_NAME             | Name of the application         | Yes      |
+| NAMESPACE            | Namespace of the application    | Yes      |
+| TARGET_INSTANCE_NAME | Name of the target sql instance | Yes      |
+| TARGET_INSTANCE_TIER | Tier of the target sql instance | No       |
+| TARGET_INSTANCE_DISKSIZE | Disk size of the target sql instance | No       |
+| TARGET_INSTANCE_TYPE | Type of the target sql instance | No       |
+
 
 ### Phase 1: Setup
 
