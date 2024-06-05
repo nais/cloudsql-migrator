@@ -124,13 +124,6 @@ func main() {
 		os.Exit(9)
 	}
 
-	// TODO: Is this needed?
-	err = application.ScaleApplication(ctx, cfg, mgr, 1)
-	if err != nil {
-		mgr.Logger.Error("failed to scale application", "error", err)
-		os.Exit(11)
-	}
-
 	err = backup.CreateBackup(ctx, cfg, target.Name, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
