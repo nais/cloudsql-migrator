@@ -7,6 +7,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/migration"
+	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"github.com/sethvargo/go-envconfig"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
@@ -29,38 +30,52 @@ func main() {
 		os.Exit(2)
 	}
 
-	// TODO: Refactor resolvers to fit each phase
-	// Must overwrite this, since the resolved value points to the new instance now
-	mgr.Resolved.Source.Name = cfg.OldInstanceName
-	masterInstanceName := fmt.Sprintf("%s-master", mgr.Resolved.Target.Name)
+	gcpProject, err := resolved.ResolveGcpProject(ctx, &cfg.Config, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to resolve GCP project ID", "error", err)
+		os.Exit(1)
+	}
 
 	mgr.Logger.Info("cleanup started", "config", cfg)
 
-	migrationName, err := mgr.Resolved.MigrationName()
+	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
+	if err != nil {
+		mgr.Logger.Error("failed to get application", "error", err)
+		os.Exit(2)
+	}
+
+	target, err := resolved.ResolveInstance(ctx, app, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to resolve target", "error", err)
+		os.Exit(2)
+	}
+
+	migrationName, err := resolved.MigrationName(cfg.OldInstanceName, target.Name)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve migration name", "error", err)
 		os.Exit(3)
 	}
 
-	err = migration.DeleteMigrationJob(ctx, migrationName, mgr)
+	err = migration.DeleteMigrationJob(ctx, migrationName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete migration job", "error", err)
 		os.Exit(4)
 	}
 
-	err = instance.CleanupConnectionProfiles(ctx, &cfg.Config, mgr)
+	err = instance.CleanupConnectionProfiles(ctx, &cfg.Config, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to cleanup connection profiles", "error", err)
 		os.Exit(5)
 	}
 
-	err = instance.DeleteInstance(ctx, masterInstanceName, mgr)
+	masterInstanceName := fmt.Sprintf("%s-master", target.Name)
+	err = instance.DeleteInstance(ctx, masterInstanceName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete master instance", "error", err)
 		os.Exit(6)
 	}
 
-	err = instance.DeleteInstance(ctx, cfg.OldInstanceName, mgr)
+	err = instance.DeleteInstance(ctx, cfg.OldInstanceName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete old instance", "error", err)
 		os.Exit(7)

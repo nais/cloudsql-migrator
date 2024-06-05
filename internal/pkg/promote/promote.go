@@ -8,20 +8,21 @@ import (
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
+	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"google.golang.org/api/datamigration/v1"
 	"google.golang.org/api/iterator"
 	"time"
 )
 
-func CheckReadyForPromotion(ctx context.Context, mgr *common_main.Manager) error {
-	migrationName, err := mgr.Resolved.MigrationName()
+func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
+	migrationName, err := resolved.MigrationName(source.Name, target.Name)
 	if err != nil {
 		return err
 	}
 
 	mgr.Logger.Info("checking if migration job is ready for promotion", "migrationName", migrationName)
 
-	migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(mgr.Resolved.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
+	migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(gcpProject.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to get migration job: %w", err)
 	}
@@ -34,7 +35,7 @@ func CheckReadyForPromotion(ctx context.Context, mgr *common_main.Manager) error
 		return fmt.Errorf("migration job is not ready for promotion: %s", migrationJob.Phase)
 	}
 
-	err = waitForReplicationLagToReachZero(ctx, mgr)
+	err = waitForReplicationLagToReachZero(ctx, target, gcpProject, mgr)
 	if err != nil {
 		return err
 	}
@@ -42,15 +43,15 @@ func CheckReadyForPromotion(ctx context.Context, mgr *common_main.Manager) error
 	return nil
 }
 
-func Promote(ctx context.Context, mgr *common_main.Manager) error {
-	migrationName, err := mgr.Resolved.MigrationName()
+func Promote(ctx context.Context, source, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
+	migrationName, err := resolved.MigrationName(source.Name, target.Name)
 	if err != nil {
 		return err
 	}
 
 	mgr.Logger.Info("start promoting destination", "migrationName", migrationName)
 
-	op, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Promote(mgr.Resolved.GcpComponentURI("migrationJobs", migrationName), &datamigration.PromoteMigrationJobRequest{}).Context(ctx).Do()
+	op, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Promote(gcpProject.GcpComponentURI("migrationJobs", migrationName), &datamigration.PromoteMigrationJobRequest{}).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to promote target instance: %w", err)
 	}
@@ -64,7 +65,7 @@ func Promote(ctx context.Context, mgr *common_main.Manager) error {
 		}
 	}
 
-	err = instance.UpdateTargetInstanceAfterPromotion(ctx, mgr)
+	err = instance.UpdateTargetInstanceAfterPromotion(ctx, target, mgr)
 	if err != nil {
 		return err
 	}
@@ -72,7 +73,7 @@ func Promote(ctx context.Context, mgr *common_main.Manager) error {
 	return nil
 }
 
-func waitForReplicationLagToReachZero(ctx context.Context, mgr *common_main.Manager) error {
+func waitForReplicationLagToReachZero(ctx context.Context, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
@@ -83,14 +84,14 @@ func waitForReplicationLagToReachZero(ctx context.Context, mgr *common_main.Mana
 	defer queryClient.Close()
 
 	req := &monitoringpb.QueryTimeSeriesRequest{
-		Name: mgr.Resolved.GcpParentURI(),
+		Name: gcpProject.GcpParentURI(),
 		Query: "fetch cloudsql_database\n" +
 			"| metric\n" +
 			"    'cloudsql.googleapis.com/database/postgresql/external_sync/max_replica_byte_lag'\n" +
 			"| filter\n" +
 			"    resource.region == 'europe-north1' && \n" +
-			fmt.Sprintf("    resource.project_id == '%s' &&\n", mgr.Resolved.GcpProjectId) +
-			fmt.Sprintf("    resource.database_id == '%s:%s'\n", mgr.Resolved.GcpProjectId, mgr.Resolved.Target.Name) +
+			fmt.Sprintf("    resource.project_id == '%s' &&\n", gcpProject.Id) +
+			fmt.Sprintf("    resource.database_id == '%s:%s'\n", gcpProject.Id, target.Name) +
 			"| group_by [], mean(val())\n" +
 			"| within 5m\n",
 	}

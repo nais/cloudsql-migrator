@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
+	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"time"
 
 	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
@@ -14,22 +15,22 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func SetupMigration(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
-	migrationName, err := mgr.Resolved.MigrationName()
+func SetupMigration(ctx context.Context, cfg *config.Config, gcpProject *resolved.GcpProject, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
+	migrationName, err := resolved.MigrationName(source.Name, target.Name)
 	if err != nil {
 		return err
 	}
 
-	err = DeleteMigrationJob(ctx, migrationName, mgr)
+	err = DeleteMigrationJob(ctx, migrationName, gcpProject, mgr)
 	if err != nil {
 	}
 
-	err = instance.CreateConnectionProfiles(ctx, cfg, mgr)
+	err = instance.CreateConnectionProfiles(ctx, cfg, gcpProject, source, target, mgr)
 	if err != nil {
 		return err
 	}
 
-	migrationJob, err := createMigrationJob(ctx, migrationName, cfg, mgr)
+	migrationJob, err := createMigrationJob(ctx, migrationName, cfg, gcpProject, mgr)
 	if err != nil {
 		return err
 	}
@@ -47,11 +48,11 @@ func SetupMigration(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 	return nil
 }
 
-func DeleteMigrationJob(ctx context.Context, migrationName string, mgr *common_main.Manager) error {
+func DeleteMigrationJob(ctx context.Context, migrationName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	mgr.Logger.Info("deleting previous migration job", "name", migrationName)
 
 	op, err := mgr.DBMigrationClient.DeleteMigrationJob(ctx, &clouddmspb.DeleteMigrationJobRequest{
-		Name: mgr.Resolved.GcpComponentURI("migrationJobs", migrationName),
+		Name: gcpProject.GcpComponentURI("migrationJobs", migrationName),
 	})
 	if err != nil {
 		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
@@ -87,9 +88,9 @@ func demoteTargetInstance(ctx context.Context, migrationJob *clouddmspb.Migratio
 	return nil
 }
 
-func createMigrationJob(ctx context.Context, migrationName string, cfg *config.Config, mgr *common_main.Manager) (*clouddmspb.MigrationJob, error) {
+func createMigrationJob(ctx context.Context, migrationName string, cfg *config.Config, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*clouddmspb.MigrationJob, error) {
 	migrationJob, err := mgr.DBMigrationClient.GetMigrationJob(ctx, &clouddmspb.GetMigrationJobRequest{
-		Name: mgr.Resolved.GcpComponentURI("migrationJobs", migrationName),
+		Name: gcpProject.GcpComponentURI("migrationJobs", migrationName),
 	})
 	if err != nil {
 		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
@@ -103,7 +104,7 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *config.C
 	}
 
 	req := &clouddmspb.CreateMigrationJobRequest{
-		Parent:         mgr.Resolved.GcpParentURI(),
+		Parent:         gcpProject.GcpParentURI(),
 		MigrationJobId: migrationName,
 		MigrationJob: &clouddmspb.MigrationJob{
 			DisplayName: migrationName,
@@ -112,8 +113,8 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *config.C
 				"team": cfg.Namespace,
 			},
 			Type:         clouddmspb.MigrationJob_CONTINUOUS,
-			Source:       mgr.Resolved.GcpComponentURI("connectionProfiles", fmt.Sprintf("source-%s", cfg.ApplicationName)),
-			Destination:  mgr.Resolved.GcpComponentURI("connectionProfiles", fmt.Sprintf("target-%s", cfg.ApplicationName)),
+			Source:       gcpProject.GcpComponentURI("connectionProfiles", fmt.Sprintf("source-%s", cfg.ApplicationName)),
+			Destination:  gcpProject.GcpComponentURI("connectionProfiles", fmt.Sprintf("target-%s", cfg.ApplicationName)),
 			Connectivity: &clouddmspb.MigrationJob_StaticIpConnectivity{},
 		},
 		RequestId: "",

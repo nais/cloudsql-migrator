@@ -7,25 +7,27 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
+	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"log/slog"
 	"strconv"
 	"time"
 )
 
-func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
+func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *resolved.Instance, databaseName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	databasePassword := makePassword(cfg, mgr.Logger)
-	err := setDatabasePassword(ctx, mgr, mgr.Resolved.Source.Name, databasePassword, &mgr.Resolved.Source.PostgresPassword)
+	err := setDatabasePassword(ctx, mgr, source.Name, databasePassword, gcpProject)
+	if err != nil {
+		return err
+	}
+	source.PostgresPassword = databasePassword
+
+	certPaths, err := instance.CreateSslCert(ctx, cfg, mgr, source.Name, &source.SslCert)
 	if err != nil {
 		return err
 	}
 
-	certPaths, err := instance.CreateSslCert(ctx, cfg, mgr, mgr.Resolved.Source.Name, &mgr.Resolved.Source.SslCert)
-	if err != nil {
-		return err
-	}
-
-	err = installExtension(ctx, mgr, certPaths)
+	err = installExtension(ctx, mgr, source, databaseName, certPaths)
 	if err != nil {
 		return err
 	}
@@ -33,14 +35,15 @@ func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, mgr *common_
 	return nil
 }
 
-func PrepareTargetDatabase(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
+func PrepareTargetDatabase(ctx context.Context, cfg *config.Config, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	databasePassword := makePassword(cfg, mgr.Logger)
-	err := setDatabasePassword(ctx, mgr, cfg.TargetInstance.Name, databasePassword, &mgr.Resolved.Target.PostgresPassword)
+	err := setDatabasePassword(ctx, mgr, cfg.TargetInstance.Name, databasePassword, gcpProject)
 	if err != nil {
 		return err
 	}
+	target.PostgresPassword = databasePassword
 
-	_, err = instance.CreateSslCert(ctx, cfg, mgr, cfg.TargetInstance.Name, &mgr.Resolved.Target.SslCert)
+	_, err = instance.CreateSslCert(ctx, cfg, mgr, cfg.TargetInstance.Name, &target.SslCert)
 
 	return nil
 }
@@ -53,39 +56,36 @@ func makePassword(cfg *config.Config, logger *slog.Logger) string {
 	return rand.String(14)
 }
 
-func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance string, password string, resolved *string) error {
+func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance string, password string, gcpProject *resolved.GcpProject) error {
 	mgr.Logger.Info("updating Cloud SQL user password", "instance", instance)
 
 	usersService := mgr.SqlAdminService.Users
-	user, err := usersService.Get(mgr.Resolved.GcpProjectId, instance, config.PostgresDatabaseUser).Context(ctx).Do()
+	user, err := usersService.Get(gcpProject.Id, instance, config.PostgresDatabaseUser).Context(ctx).Do()
 	if err != nil {
 		return err
 	}
 
 	user.Password = password
 
-	op, err := usersService.Update(mgr.Resolved.GcpProjectId, instance, user).Name(user.Name).Host(user.Host).Context(ctx).Do()
+	op, err := usersService.Update(gcpProject.Id, instance, user).Name(user.Name).Host(user.Host).Context(ctx).Do()
 	if err != nil {
-		mgr.Logger.Error("failed to update Cloud SQL user password", "error", err)
-		return err
+		return fmt.Errorf("failed to update Cloud SQL user password: %w", err)
 	}
 
 	operationsService := mgr.SqlAdminService.Operations
 	for op.Status != "DONE" {
 		time.Sleep(1 * time.Second)
-		op, err = operationsService.Get(mgr.Resolved.GcpProjectId, op.Name).Context(ctx).Do()
+		op, err = operationsService.Get(gcpProject.Id, op.Name).Context(ctx).Do()
 		if err != nil {
 			return fmt.Errorf("failed to get update operation status: %w", err)
 		}
 	}
 
-	*resolved = password
-
 	return nil
 }
 
-func installExtension(ctx context.Context, mgr *common_main.Manager, certPaths *instance.CertPaths) error {
-	logger := mgr.Logger.With("instance", mgr.Resolved.Source.Name)
+func installExtension(ctx context.Context, mgr *common_main.Manager, source *resolved.Instance, databaseName string, certPaths *instance.CertPaths) error {
+	logger := mgr.Logger.With("instance", source.Name)
 	logger.Info("installing pglogical extension and adding grants")
 
 	dbInfos := []struct {
@@ -96,19 +96,19 @@ func installExtension(ctx context.Context, mgr *common_main.Manager, certPaths *
 		{
 			DatabaseName: config.PostgresDatabaseName,
 			Username:     config.PostgresDatabaseUser,
-			Password:     mgr.Resolved.Source.PostgresPassword,
+			Password:     source.PostgresPassword,
 		},
 		{
-			DatabaseName: mgr.Resolved.DatabaseName,
-			Username:     mgr.Resolved.Source.AppUsername,
-			Password:     mgr.Resolved.Source.AppPassword,
+			DatabaseName: databaseName,
+			Username:     source.AppUsername,
+			Password:     source.AppPassword,
 		},
 	}
 
 	for _, dbInfo := range dbInfos {
 		logger.Info("connecting to database", "database", dbInfo.DatabaseName, "user", dbInfo.Username)
 		dbConn, err := createConnection(
-			mgr.Resolved.Source.Ip,
+			source.PrimaryIp,
 			dbInfo.Username,
 			dbInfo.Password,
 			dbInfo.DatabaseName,
@@ -140,14 +140,14 @@ func installExtension(ctx context.Context, mgr *common_main.Manager, certPaths *
 	return nil
 }
 
-func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, certPaths *instance.CertPaths) error {
+func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, target *resolved.Instance, databaseName string, certPaths *instance.CertPaths) error {
 	logger := mgr.Logger
 
 	dbConn, err := createConnection(
-		mgr.Resolved.Target.Ip,
-		mgr.Resolved.Target.AppUsername,
-		mgr.Resolved.Target.AppPassword,
-		mgr.Resolved.DatabaseName,
+		target.PrimaryIp,
+		target.AppUsername,
+		target.AppPassword,
+		databaseName,
 		certPaths.RootCertPath,
 		certPaths.KeyPath,
 		certPaths.CertPath,
@@ -158,10 +158,10 @@ func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, certPaths *i
 	}
 	defer dbConn.Close()
 
-	logger.Info("reassigning ownership from cloudsqlexternalsync to app user", "database", mgr.Resolved.DatabaseName, "user", mgr.Resolved.Target.AppUsername)
+	logger.Info("reassigning ownership from cloudsqlexternalsync to app user", "database", databaseName, "user", target.AppUsername)
 
-	_, err = dbConn.ExecContext(ctx, "GRANT cloudsqlexternalsync to \""+mgr.Resolved.Target.AppUsername+"\";"+
-		"REASSIGN OWNED BY cloudsqlexternalsync to \""+mgr.Resolved.Target.AppUsername+"\";")
+	_, err = dbConn.ExecContext(ctx, "GRANT cloudsqlexternalsync to \""+target.AppUsername+"\";"+
+		"REASSIGN OWNED BY cloudsqlexternalsync to \""+target.AppUsername+"\";")
 	if err != nil {
 		return err
 	}

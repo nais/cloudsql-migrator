@@ -6,6 +6,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
+	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	autoscaling_v1 "k8s.io/api/autoscaling/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,10 +59,10 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, mgr *com
 	return nil
 }
 
-func UpdateApplicationUser(ctx context.Context, mgr *common_main.Manager) error {
+func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager) error {
 	mgr.Logger.Info("updating application user")
 
-	user, err := mgr.SqlUserClient.Get(ctx, mgr.Resolved.Target.AppUsername)
+	user, err := mgr.SqlUserClient.Get(ctx, target.AppUsername)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/database"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/migration"
+	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"os"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -34,13 +35,37 @@ func main() {
 
 	mgr.Logger.Info("setup started", "config", cfg)
 
-	err = instance.CreateInstance(ctx, cfg, mgr)
+	gcpProject, err := resolved.ResolveGcpProject(ctx, cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to resolve GCP project ID", "error", err)
+		os.Exit(1)
+	}
+
+	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
+	if err != nil {
+		mgr.Logger.Error("failed to get application", "error", err)
+		os.Exit(2)
+	}
+
+	source, err := resolved.ResolveInstance(ctx, app, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to resolve source", "error", err)
+		os.Exit(2)
+	}
+
+	databaseName, err := resolved.ResolveDatabaseName(app)
+	if err != nil {
+		mgr.Logger.Error("failed to resolve database name", "error", err)
+		os.Exit(3)
+	}
+
+	target, err := instance.CreateInstance(ctx, cfg, source, gcpProject, databaseName, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to create target instance", "error", err)
 		os.Exit(3)
 	}
 
-	err = backup.CreateBackup(ctx, cfg, mgr, mgr.Resolved.Source.Name)
+	err = backup.CreateBackup(ctx, cfg, source.Name, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
 		os.Exit(4)
@@ -52,31 +77,31 @@ func main() {
 		os.Exit(5)
 	}
 
-	err = instance.PrepareSourceInstance(ctx, cfg, mgr)
+	err = instance.PrepareSourceInstance(ctx, cfg, source, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source instance", "error", err)
 		os.Exit(6)
 	}
 
-	err = database.PrepareSourceDatabase(ctx, cfg, mgr)
+	err = database.PrepareSourceDatabase(ctx, cfg, source, databaseName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source database", "error", err)
 		os.Exit(7)
 	}
 
-	err = instance.PrepareTargetInstance(ctx, cfg, mgr)
+	err = instance.PrepareTargetInstance(ctx, cfg, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare target instance", "error", err)
 		os.Exit(8)
 	}
 
-	err = database.PrepareTargetDatabase(ctx, cfg, mgr)
+	err = database.PrepareTargetDatabase(ctx, cfg, target, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare target database", "error", err)
 		os.Exit(9)
 	}
 
-	err = migration.SetupMigration(ctx, cfg, mgr)
+	err = migration.SetupMigration(ctx, cfg, gcpProject, source, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to setup migration", "error", err)
 		os.Exit(10)

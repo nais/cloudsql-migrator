@@ -12,15 +12,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func CreateConnectionProfiles(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
-	cps := getDmsConnectionProfiles(cfg, mgr)
+func CreateConnectionProfiles(ctx context.Context, cfg *config.Config, gcpProject *resolved.GcpProject, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
+	cps := getDmsConnectionProfiles(cfg, source, target)
 
-	err := deleteOldConnectionProfiles(ctx, cps, mgr)
+	err := deleteOldConnectionProfiles(ctx, cps, gcpProject, mgr)
 	if err != nil {
 		return err
 	}
 
-	err = createConnectionProfiles(ctx, cps, mgr)
+	err = createConnectionProfiles(ctx, cps, gcpProject, mgr)
 	if err != nil {
 		return err
 	}
@@ -28,10 +28,10 @@ func CreateConnectionProfiles(ctx context.Context, cfg *config.Config, mgr *comm
 	return nil
 }
 
-func CleanupConnectionProfiles(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
+func CleanupConnectionProfiles(ctx context.Context, cfg *config.Config, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	for _, prefix := range []string{"source", "target"} {
 		profileName := fmt.Sprintf("%s-%s", prefix, cfg.ApplicationName)
-		_, err := deleteConnectionProfile(ctx, profileName, mgr)
+		_, err := deleteConnectionProfile(ctx, profileName, gcpProject, mgr)
 		if err != nil {
 			return err
 		}
@@ -40,14 +40,14 @@ func CleanupConnectionProfiles(ctx context.Context, cfg *config.Config, mgr *com
 	return nil
 }
 
-func createConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb.ConnectionProfile, mgr *common_main.Manager) error {
+func createConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb.ConnectionProfile, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	createOperations := make([]*clouddms.CreateConnectionProfileOperation, 0, 2)
 	for i, cp := range cps {
 		profileName := fmt.Sprintf("%s-%s", i, cp.Name)
 
 		mgr.Logger.Info("creating connection profile", "name", profileName)
 		createOperation, err := mgr.DBMigrationClient.CreateConnectionProfile(ctx, &clouddmspb.CreateConnectionProfileRequest{
-			Parent:              mgr.Resolved.GcpParentURI(),
+			Parent:              gcpProject.GcpParentURI(),
 			ConnectionProfileId: profileName,
 			ConnectionProfile:   cp,
 		})
@@ -75,12 +75,12 @@ func createConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb.Co
 	return nil
 }
 
-func deleteOldConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb.ConnectionProfile, mgr *common_main.Manager) error {
+func deleteOldConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb.ConnectionProfile, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	deleteOperations := make([]*clouddms.DeleteConnectionProfileOperation, 0, 2)
 	for i, cp := range cps {
 		profileName := fmt.Sprintf("%s-%s", i, cp.Name)
 
-		deleteOperation, err := deleteConnectionProfile(ctx, profileName, mgr)
+		deleteOperation, err := deleteConnectionProfile(ctx, profileName, gcpProject, mgr)
 		if err != nil {
 			return fmt.Errorf("failed to delete connection profile: %w", err)
 		}
@@ -99,10 +99,10 @@ func deleteOldConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb
 	return nil
 }
 
-func deleteConnectionProfile(ctx context.Context, profileName string, mgr *common_main.Manager) (*clouddms.DeleteConnectionProfileOperation, error) {
+func deleteConnectionProfile(ctx context.Context, profileName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*clouddms.DeleteConnectionProfileOperation, error) {
 	mgr.Logger.Info("deleting connection profile", "name", profileName)
 	deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
-		Name: mgr.Resolved.GcpComponentURI("connectionProfiles", profileName),
+		Name: gcpProject.GcpComponentURI("connectionProfiles", profileName),
 	})
 	if err != nil {
 		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
@@ -113,20 +113,20 @@ func deleteConnectionProfile(ctx context.Context, profileName string, mgr *commo
 	return deleteOperation, nil
 }
 
-func getDmsConnectionProfiles(cfg *config.Config, mgr *common_main.Manager) map[string]*clouddmspb.ConnectionProfile {
+func getDmsConnectionProfiles(cfg *config.Config, source *resolved.Instance, target *resolved.Instance) map[string]*clouddmspb.ConnectionProfile {
 	cps := make(map[string]*clouddmspb.ConnectionProfile, 2)
-	cps["source"] = connectionProfile(cfg, mgr.Resolved.Source)
-	cps["target"] = connectionProfile(cfg, mgr.Resolved.Target)
+	cps["source"] = connectionProfile(cfg, source)
+	cps["target"] = connectionProfile(cfg, target)
 
 	return cps
 }
 
-func connectionProfile(cfg *config.Config, instance resolved.Instance) *clouddmspb.ConnectionProfile {
+func connectionProfile(cfg *config.Config, instance *resolved.Instance) *clouddmspb.ConnectionProfile {
 	return &clouddmspb.ConnectionProfile{
 		Name: cfg.ApplicationName,
 		ConnectionProfile: &clouddmspb.ConnectionProfile_Postgresql{
 			Postgresql: &clouddmspb.PostgreSqlConnectionProfile{
-				Host:     instance.Ip,
+				Host:     instance.PrimaryIp,
 				Port:     config.DatabasePort,
 				Username: config.PostgresDatabaseUser,
 				Password: instance.PostgresPassword,

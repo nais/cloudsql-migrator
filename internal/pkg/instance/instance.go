@@ -8,6 +8,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
+	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"google.golang.org/api/googleapi"
@@ -25,22 +26,20 @@ const (
 	dummyAppImage = "europe-north1-docker.pkg.dev/nais-io/nais/images/kafka-debug:latest"
 )
 
-func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
+func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.Instance, gcpProject *resolved.GcpProject, databaseName string, mgr *common_main.Manager) (*resolved.Instance, error) {
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	targetInstance, err := DefineTargetInstance(cfg, app)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	mgr.Resolved.Target.Name = targetInstance.Name
 
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	dummyApp, err := mgr.AppClient.Get(ctx, helperName)
@@ -56,7 +55,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 					"migrator.nais.io/cleanup": app.Name,
 				},
 				Annotations: map[string]string{
-					"migrator.nais.io/source-instance": mgr.Resolved.Source.Name,
+					"migrator.nais.io/source-instance": source.Name,
 					"migrator.nais.io/target-instance": cfg.TargetInstance.Name,
 				},
 			},
@@ -75,7 +74,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 		app, err = mgr.AppClient.Create(ctx, dummyApp)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	mgr.Logger.Info("started creation of target instance", "helperApp", helperName)
 	for app.Status.DeploymentRolloutStatus != "complete" {
@@ -83,7 +82,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 		time.Sleep(5 * time.Second)
 		app, err = mgr.AppClient.Get(ctx, helperName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -92,24 +91,24 @@ func CreateInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Ma
 		LabelSelector: "app=" + helperName,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to delete databases from target instance: %w", err)
+		return nil, fmt.Errorf("failed to delete databases from target instance: %w", err)
 	}
 
 	mgr.Logger.Info("deleting database in target instance")
-	op, err := mgr.SqlAdminService.Databases.Delete(mgr.Resolved.GcpProjectId, mgr.Resolved.Target.Name, mgr.Resolved.DatabaseName).Context(ctx).Do()
+	op, err := mgr.SqlAdminService.Databases.Delete(gcpProject.Id, targetInstance.Name, databaseName).Context(ctx).Do()
 	if err != nil {
-		return fmt.Errorf("failed to delete database from target instance: %w", err)
+		return nil, fmt.Errorf("failed to delete database from target instance: %w", err)
 	}
 
 	for op.Status != "DONE" {
 		time.Sleep(1 * time.Second)
-		op, err = mgr.SqlAdminService.Operations.Get(mgr.Resolved.GcpProjectId, op.Name).Context(ctx).Do()
+		op, err = mgr.SqlAdminService.Operations.Get(gcpProject.Id, op.Name).Context(ctx).Do()
 		if err != nil {
-			return fmt.Errorf("failed to get delete operation status: %w", err)
+			return nil, fmt.Errorf("failed to get delete operation status: %w", err)
 		}
 	}
 
-	return nil
+	return resolved.ResolveInstance(ctx, dummyApp, mgr)
 }
 
 func DefineTargetInstance(cfg *config.Config, app *nais_io_v1alpha1.Application) (*nais_io_v1.CloudSqlInstance, error) {
@@ -131,42 +130,17 @@ func DefineTargetInstance(cfg *config.Config, app *nais_io_v1alpha1.Application)
 	return targetInstance, nil
 }
 
-func PrepareSourceInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
-	getInstanceCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
-	defer cancel()
-
-	var targetSqlInstance *v1beta1.SQLInstance
-	var err error
-	for targetSqlInstance == nil || targetSqlInstance.Status.PublicIpAddress == nil {
-		mgr.Logger.Info("waiting for target instance to be ready")
-		time.Sleep(5 * time.Second)
-		targetSqlInstance, err = mgr.SqlInstanceClient.Get(getInstanceCtx, mgr.Resolved.Target.Name)
-		if err != nil {
-			if !k8s_errors.IsNotFound(err) {
-				return err
-			}
-		}
-	}
-
-	mgr.Resolved.Target.Ip = *targetSqlInstance.Status.PublicIpAddress
-
-	outgoingIp := mgr.Resolved.Target.Ip
-	for _, address := range targetSqlInstance.Status.IpAddress {
-		if *address.Type == "OUTGOING" {
-			outgoingIp = *address.IpAddress
-		}
-	}
-
+func PrepareSourceInstance(ctx context.Context, cfg *config.Config, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
 	mgr.Logger.Info("preparing source instance for migration")
 
-	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Source.Name)
+	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
 	if err != nil {
 		return err
 	}
 
 	authNetwork := v1beta1.InstanceAuthorizedNetworks{
-		Name:  &mgr.Resolved.Target.Name,
-		Value: fmt.Sprintf("%s/32", outgoingIp),
+		Name:  &target.Name,
+		Value: fmt.Sprintf("%s/32", target.OutgoingIp),
 	}
 	sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
 
@@ -182,13 +156,14 @@ func PrepareSourceInstance(ctx context.Context, cfg *config.Config, mgr *common_
 	setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
 	setFlag(sourceSqlInstance, "cloudsql.logical_decoding")
 
+	// TODO: Retry on "modified"
 	_, err = mgr.SqlInstanceClient.Update(ctx, sourceSqlInstance)
 	if err != nil {
 		return err
 	}
 
 	time.Sleep(5 * time.Second)
-	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Source.Name)
+	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
 	if err != nil {
 		return err
 	}
@@ -196,7 +171,7 @@ func PrepareSourceInstance(ctx context.Context, cfg *config.Config, mgr *common_
 	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
 		mgr.Logger.Info("waiting for source instance to be ready")
 		time.Sleep(3 * time.Second)
-		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Source.Name)
+		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, source.Name)
 		if err != nil {
 			return err
 		}
@@ -206,11 +181,11 @@ func PrepareSourceInstance(ctx context.Context, cfg *config.Config, mgr *common_
 	return nil
 }
 
-func PrepareTargetInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
+func PrepareTargetInstance(ctx context.Context, cfg *config.Config, target *resolved.Instance, mgr *common_main.Manager) error {
 	getInstanceCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 
-	targetSqlInstance, err := mgr.SqlInstanceClient.Get(getInstanceCtx, mgr.Resolved.Target.Name)
+	targetSqlInstance, err := mgr.SqlInstanceClient.Get(getInstanceCtx, target.Name)
 	if err != nil {
 		if !k8s_errors.IsNotFound(err) {
 			return err
@@ -237,7 +212,7 @@ func PrepareTargetInstance(ctx context.Context, cfg *config.Config, mgr *common_
 	}
 
 	time.Sleep(5 * time.Second)
-	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Target.Name)
+	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
 	if err != nil {
 		return err
 	}
@@ -245,7 +220,7 @@ func PrepareTargetInstance(ctx context.Context, cfg *config.Config, mgr *common_
 	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
 		mgr.Logger.Info("waiting for target instance to be ready")
 		time.Sleep(3 * time.Second)
-		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Target.Name)
+		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, target.Name)
 		if err != nil {
 			return err
 		}
@@ -255,8 +230,8 @@ func PrepareTargetInstance(ctx context.Context, cfg *config.Config, mgr *common_
 	return nil
 }
 
-func UpdateTargetInstanceAfterPromotion(ctx context.Context, mgr *common_main.Manager) error {
-	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Target.Name)
+func UpdateTargetInstanceAfterPromotion(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager) error {
+	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get target instance: %w", err)
 	}
@@ -270,7 +245,7 @@ func UpdateTargetInstanceAfterPromotion(ctx context.Context, mgr *common_main.Ma
 	}
 
 	time.Sleep(5 * time.Second)
-	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Target.Name)
+	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
 	if err != nil {
 		return err
 	}
@@ -278,7 +253,7 @@ func UpdateTargetInstanceAfterPromotion(ctx context.Context, mgr *common_main.Ma
 	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
 		mgr.Logger.Info("waiting for target instance to be ready")
 		time.Sleep(3 * time.Second)
-		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, mgr.Resolved.Target.Name)
+		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, target.Name)
 		if err != nil {
 			return err
 		}
@@ -288,11 +263,11 @@ func UpdateTargetInstanceAfterPromotion(ctx context.Context, mgr *common_main.Ma
 	return nil
 }
 
-func DeleteInstance(ctx context.Context, instanceName string, mgr *common_main.Manager) error {
+func DeleteInstance(ctx context.Context, instanceName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	instancesService := mgr.SqlAdminService.Instances
 
 	mgr.Logger.Debug("checking for existence before deletion")
-	_, err := instancesService.Get(mgr.Resolved.GcpProjectId, instanceName).Context(ctx).Do()
+	_, err := instancesService.Get(gcpProject.Id, instanceName).Context(ctx).Do()
 	if err != nil {
 		var ae *googleapi.Error
 		if errors.As(err, &ae) && ae.Code == http.StatusNotFound {
@@ -303,7 +278,7 @@ func DeleteInstance(ctx context.Context, instanceName string, mgr *common_main.M
 	}
 
 	mgr.Logger.Info("deleting instance", "name", instanceName)
-	_, err = instancesService.Delete(mgr.Resolved.GcpProjectId, instanceName).Context(ctx).Do()
+	_, err = instancesService.Delete(gcpProject.Id, instanceName).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to delete instance: %w", err)
 	}
