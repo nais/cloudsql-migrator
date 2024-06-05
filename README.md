@@ -11,32 +11,58 @@ Setup creates the new SQL instance based on the parameters provided for the migr
 The connection profiles and the migration job itself is also created in this phase, and when finished is running the new instance as a replica of
 the original instance incrementally loading changes into the replica.
 
+![setup phase](img/cloudsql-migrator-setup.png "Setup phase")
+
 Promotion verifies that the migration job is in the correct phase, and that the replication lag is zero (i.e. we know that the databases are synchronized). 
 The application is scaled down before the replica is promoted to a standalone database instance. The application is then configured to use the new instance, 
 before the application is scaled up again. These changes needs to be reflected in the application spec before the next deploy.
 All down time for the migration operation is incurred in this phase.
+
+![promote phase](img/cloudsql-migrator-promote.png "Promote phase")
 
 Cleanup removes unused kubernetes resources and google cloud resources. This phase should be executed after the teams have verified that the application
 is working as expected.
 
 Before setup and after promotion we create a backup of the instance in use.
 
+
 ## How to use
 
 ### Command line
 
-Run the application from command line with environment variables set. 
+Run the application from command line with environment variables exported. 
 
-#### Parameters
-| Variable             | Description                     | Required |
-|----------------------|---------------------------------|----------|
-| APP_NAME             | Name of the application         | Yes      |
-| NAMESPACE            | Namespace of the application    | Yes      |
-| TARGET_INSTANCE_NAME | Name of the target sql instance | Yes      |
-| TARGET_INSTANCE_TIER | Tier of the target sql instance | No       |
+#### Environment variables
+| Variable                 | Description                          | Required |
+|--------------------------|--------------------------------------|----------|
+| APP_NAME                 | Name of the application              | Yes      |
+| NAMESPACE                | Namespace of the application         | Yes      |
+| TARGET_INSTANCE_NAME     | Name of the target sql instance      | Yes      |
+| TARGET_INSTANCE_TIER     | Tier of the target sql instance      | No       |
 | TARGET_INSTANCE_DISKSIZE | Disk size of the target sql instance | No       |
-| TARGET_INSTANCE_TYPE | Type of the target sql instance | No       |
+| TARGET_INSTANCE_TYPE     | Type of the target sql instance      | No       |
 
+Setup the migration job and start replicating:
+```shell
+cloudsql-migrator setup 
+```
+After setup has finished your database is replicated continuously, continue with the next phase when 
+you are ready to make use of the new instance.
+
+Promote the instance:
+```shell
+cloudsql-migrator promote
+```
+After promote has finished your application is using the new instance, the application spec needs to be updated to reflect the changes.
+This will always include the new name of the instance, and possibly the tier, disksize and type of the instance.
+
+
+Clean up the resources when migration is completed:
+```shell
+cloudsql-migrator cleanup
+```
+
+## Detailed description of the phases
 
 ### Phase 1: Setup
 
