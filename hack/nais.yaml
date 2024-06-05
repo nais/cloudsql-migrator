@@ -1,0 +1,29 @@
+kind: "Application"
+apiVersion: "nais.io/v1alpha1"
+metadata:
+  name: db-tester-9
+  namespace: basseng
+  labels:
+    team: basseng
+spec:
+  image: ghcr.io/navikt/nada-db-test:v11
+  port: 8080
+  replicas:
+    min: 2
+    max: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  gcp:
+    sqlInstances:
+      - type: POSTGRES_15
+        tier: db-custom-1-4096
+        name: not-same-as-app-9
+        cascadingDelete: true
+        databases:
+          - name: nada-db-test
+            envVarPrefix: DB
