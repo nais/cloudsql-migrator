@@ -24,6 +24,7 @@ import (
 
 const (
 	dummyAppImage = "europe-north1-docker.pkg.dev/nais-io/nais/images/kafka-debug:latest"
+	updateRetries = 3
 )
 
 func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.Instance, gcpProject *resolved.GcpProject, databaseName string, mgr *common_main.Manager) (*resolved.Instance, error) {
@@ -133,6 +134,31 @@ func DefineTargetInstance(cfg *config.Config, app *nais_io_v1alpha1.Application)
 func PrepareSourceInstance(ctx context.Context, cfg *config.Config, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
 	mgr.Logger.Info("preparing source instance for migration")
 
+	err := prepareSourceInstanceWithRetries(ctx, cfg, source, target, mgr, updateRetries)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(1 * time.Second)
+	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
+	if err != nil {
+		return err
+	}
+
+	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
+		mgr.Logger.Info("waiting for source instance to be ready")
+		time.Sleep(3 * time.Second)
+		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, source.Name)
+		if err != nil {
+			return err
+		}
+
+	}
+	mgr.Logger.Info("source instance prepared for migration")
+	return nil
+}
+
+func prepareSourceInstanceWithRetries(ctx context.Context, cfg *config.Config, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
 	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
 	if err != nil {
 		return err
@@ -156,28 +182,14 @@ func PrepareSourceInstance(ctx context.Context, cfg *config.Config, source *reso
 	setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
 	setFlag(sourceSqlInstance, "cloudsql.logical_decoding")
 
-	// TODO: Retry on "modified"
 	_, err = mgr.SqlInstanceClient.Update(ctx, sourceSqlInstance)
 	if err != nil {
-		return err
-	}
-
-	time.Sleep(5 * time.Second)
-	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
-	if err != nil {
-		return err
-	}
-
-	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
-		mgr.Logger.Info("waiting for source instance to be ready")
-		time.Sleep(3 * time.Second)
-		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, source.Name)
-		if err != nil {
-			return err
+		if k8s_errors.IsConflict(err) && retries > 0 {
+			mgr.Logger.Info("retrying update of source instance", "remaining_retries", retries)
+			return prepareSourceInstanceWithRetries(ctx, cfg, source, target, mgr, retries-1)
 		}
-
+		return err
 	}
-	mgr.Logger.Info("source instance prepared for migration")
 	return nil
 }
 
@@ -185,7 +197,32 @@ func PrepareTargetInstance(ctx context.Context, cfg *config.Config, target *reso
 	getInstanceCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 
-	targetSqlInstance, err := mgr.SqlInstanceClient.Get(getInstanceCtx, target.Name)
+	err := prepareTargetInstanceWithRetries(getInstanceCtx, cfg, target, mgr, updateRetries)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(1 * time.Second)
+	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
+	if err != nil {
+		return err
+	}
+
+	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
+		mgr.Logger.Info("waiting for target instance to be ready")
+		time.Sleep(3 * time.Second)
+		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, target.Name)
+		if err != nil {
+			return err
+		}
+	}
+
+	mgr.Logger.Info("target instance prepared for migration")
+	return nil
+}
+
+func prepareTargetInstanceWithRetries(ctx context.Context, cfg *config.Config, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
+	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
 	if err != nil {
 		if !k8s_errors.IsNotFound(err) {
 			return err
@@ -208,38 +245,17 @@ func PrepareTargetInstance(ctx context.Context, cfg *config.Config, target *reso
 
 	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
 	if err != nil {
-		return err
-	}
-
-	time.Sleep(5 * time.Second)
-	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
-	if err != nil {
-		return err
-	}
-
-	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
-		mgr.Logger.Info("waiting for target instance to be ready")
-		time.Sleep(3 * time.Second)
-		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, target.Name)
-		if err != nil {
-			return err
+		if k8s_errors.IsConflict(err) && retries > 0 {
+			mgr.Logger.Info("retrying update of target instance", "remaining_retries", retries)
+			return prepareTargetInstanceWithRetries(ctx, cfg, target, mgr, retries-1)
 		}
+		return err
 	}
-
-	mgr.Logger.Info("target instance prepared for migration")
 	return nil
 }
 
 func UpdateTargetInstanceAfterPromotion(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager) error {
-	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
-	if err != nil {
-		return fmt.Errorf("failed to get target instance: %w", err)
-	}
-
-	targetSqlInstance.Spec.InstanceType = ptr.To("CLOUD_SQL_INSTANCE")
-	targetSqlInstance.Spec.MasterInstanceRef = nil
-
-	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
+	err := updateTargetInstanceAfterPromotionWithRetries(ctx, target, mgr, updateRetries)
 	if err != nil {
 		return err
 	}
@@ -260,6 +276,26 @@ func UpdateTargetInstanceAfterPromotion(ctx context.Context, target *resolved.In
 	}
 
 	mgr.Logger.Info("target instance updated after promotion")
+	return nil
+}
+
+func updateTargetInstanceAfterPromotionWithRetries(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
+	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get target instance: %w", err)
+	}
+
+	targetSqlInstance.Spec.InstanceType = ptr.To("CLOUD_SQL_INSTANCE")
+	targetSqlInstance.Spec.MasterInstanceRef = nil
+
+	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
+	if err != nil {
+		if k8s_errors.IsConflict(err) && retries > 0 {
+			mgr.Logger.Info("retrying update of target instance", "remaining_retries", retries)
+			return updateTargetInstanceAfterPromotionWithRetries(ctx, target, mgr, retries-1)
+		}
+		return err
+	}
 	return nil
 }
 

@@ -9,10 +9,13 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	autoscaling_v1 "k8s.io/api/autoscaling/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 	"time"
 )
+
+const UpdateRetries = 3
 
 func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, replicas int32) error {
 	mgr.Logger.Info("scaling application", "name", cfg.ApplicationName, "replicas", replicas)
@@ -37,6 +40,10 @@ func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.
 func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
 	mgr.Logger.Info("updating application to use new instance", "name", cfg.ApplicationName)
 
+	return updateApplicationInstanceWithRetries(ctx, cfg, mgr, UpdateRetries)
+}
+
+func updateApplicationInstanceWithRetries(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, retries int) error {
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		return err
@@ -53,6 +60,10 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, mgr *com
 
 	_, err = mgr.AppClient.Update(ctx, app)
 	if err != nil {
+		if errors.IsConflict(err) && retries > 0 {
+			mgr.Logger.Info("retrying update of application", "remaining_retries", retries)
+			return updateApplicationInstanceWithRetries(ctx, cfg, mgr, retries-1)
+		}
 		return err
 	}
 
@@ -62,6 +73,10 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, mgr *com
 func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager) error {
 	mgr.Logger.Info("updating application user")
 
+	return updateApplicationUserWithRetries(ctx, target, mgr, UpdateRetries)
+}
+
+func updateApplicationUserWithRetries(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
 	user, err := mgr.SqlUserClient.Get(ctx, target.AppUsername)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
@@ -71,12 +86,14 @@ func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, mgr *
 	user.ObjectMeta.Labels["migrator.nais.io/touched"] = strconv.FormatInt(time.Now().Unix(), 10)
 	user.ObjectMeta.Annotations["cnrm.cloud.google.com/observed-secret-versions"] = "{}"
 
-	// TODO: Retry if "the object has been modified; please apply your changes to the latest version and try again"
 	user, err = mgr.SqlUserClient.Update(ctx, user)
 	if err != nil {
+		if errors.IsConflict(err) && retries > 0 {
+			mgr.Logger.Info("retrying update of user", "remaining_retries", retries)
+			return updateApplicationUserWithRetries(ctx, target, mgr, retries-1)
+		}
 		return fmt.Errorf("failed to update user: %w", err)
 	}
-
 	return nil
 }
 
