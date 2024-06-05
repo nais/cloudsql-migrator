@@ -100,12 +100,6 @@ func main() {
 		os.Exit(6)
 	}
 
-	err = application.UpdateApplicationUser(ctx, target, mgr)
-	if err != nil {
-		mgr.Logger.Error("failed to update application user", "error", err)
-		os.Exit(10)
-	}
-
 	err = database.ChangeOwnership(ctx, mgr, target, databaseName, certPaths)
 	if err != nil {
 		mgr.Logger.Error("failed to change ownership", "error", err)
@@ -118,10 +112,22 @@ func main() {
 		os.Exit(8)
 	}
 
-	err = application.UpdateApplicationInstance(ctx, cfg, mgr)
+	app, err = application.UpdateApplicationInstance(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
 		os.Exit(9)
+	}
+
+	target, err = resolved.ResolveInstance(ctx, app, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to resolve updated target", "error", err)
+		os.Exit(2)
+	}
+
+	err = application.UpdateApplicationUser(ctx, target, gcpProject, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to update application user", "error", err)
+		os.Exit(10)
 	}
 
 	err = backup.CreateBackup(ctx, cfg, target.Name, gcpProject, mgr)

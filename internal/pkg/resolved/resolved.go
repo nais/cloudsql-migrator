@@ -3,12 +3,15 @@ package resolved
 import (
 	"context"
 	"fmt"
+	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
+	"time"
 )
 
 // Resolved is configuration that is resolved by looking up in the cluster
@@ -127,9 +130,22 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 		return nil, err
 	}
 
-	sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, instance.Name)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get existing sql instance: %w", err)
+	var sqlInstance *v1beta1.SQLInstance
+	for {
+		mgr.Logger.Debug("waiting for sql instance to be ready", "instance", instance.Name)
+		sqlInstance, err = mgr.SqlInstanceClient.Get(ctx, instance.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				time.Sleep(1 * time.Second)
+				continue
+			}
+		}
+
+		if sqlInstance.Status.Conditions[0].Reason != "UpToDate" {
+			time.Sleep(3 * time.Second)
+			continue
+		}
+		break
 	}
 
 	if sqlInstance.Status.PublicIpAddress == nil {

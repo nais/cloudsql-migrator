@@ -16,7 +16,7 @@ import (
 
 func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *resolved.Instance, databaseName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	databasePassword := makePassword(cfg, mgr.Logger)
-	err := setDatabasePassword(ctx, mgr, source.Name, databasePassword, gcpProject)
+	err := SetDatabasePassword(ctx, source.Name, config.PostgresDatabaseUser, databasePassword, gcpProject, mgr)
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *reso
 
 func PrepareTargetDatabase(ctx context.Context, cfg *config.Config, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	databasePassword := makePassword(cfg, mgr.Logger)
-	err := setDatabasePassword(ctx, mgr, cfg.TargetInstance.Name, databasePassword, gcpProject)
+	err := SetDatabasePassword(ctx, cfg.TargetInstance.Name, config.PostgresDatabaseUser, databasePassword, gcpProject, mgr)
 	if err != nil {
 		return err
 	}
@@ -56,11 +56,11 @@ func makePassword(cfg *config.Config, logger *slog.Logger) string {
 	return rand.String(14)
 }
 
-func setDatabasePassword(ctx context.Context, mgr *common_main.Manager, instance string, password string, gcpProject *resolved.GcpProject) error {
-	mgr.Logger.Info("updating Cloud SQL user password", "instance", instance)
+func SetDatabasePassword(ctx context.Context, instance string, userName string, password string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
+	mgr.Logger.Info("updating Cloud SQL user password", "instance", instance, "user", userName)
 
 	usersService := mgr.SqlAdminService.Users
-	user, err := usersService.Get(gcpProject.Id, instance, config.PostgresDatabaseUser).Context(ctx).Do()
+	user, err := usersService.Get(gcpProject.Id, instance, userName).Context(ctx).Do()
 	if err != nil {
 		return err
 	}

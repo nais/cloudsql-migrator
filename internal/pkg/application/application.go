@@ -2,16 +2,16 @@ package application
 
 import (
 	"context"
-	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
+	"github.com/nais/cloudsql-migrator/internal/pkg/database"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
+	"github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	autoscaling_v1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strconv"
 	"time"
 )
 
@@ -37,64 +37,60 @@ func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.
 	return nil
 }
 
-func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
+func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) (*nais_io_v1alpha1.Application, error) {
 	mgr.Logger.Info("updating application to use new instance", "name", cfg.ApplicationName)
 
 	return updateApplicationInstanceWithRetries(ctx, cfg, mgr, UpdateRetries)
 }
 
-func updateApplicationInstanceWithRetries(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, retries int) error {
+func updateApplicationInstanceWithRetries(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, retries int) (*nais_io_v1alpha1.Application, error) {
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	targetInstance, err := instance.DefineTargetInstance(cfg, app)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	app.Spec.GCP.SqlInstances = []nais_io_v1.CloudSqlInstance{
 		*targetInstance,
 	}
 
-	_, err = mgr.AppClient.Update(ctx, app)
+	app, err = mgr.AppClient.Update(ctx, app)
 	if err != nil {
 		if errors.IsConflict(err) && retries > 0 {
 			mgr.Logger.Info("retrying update of application", "remaining_retries", retries)
 			return updateApplicationInstanceWithRetries(ctx, cfg, mgr, retries-1)
 		}
-		return err
+		return nil, err
 	}
 
-	return nil
+	return app, nil
 }
 
-func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager) error {
+func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	mgr.Logger.Info("updating application user")
 
-	return updateApplicationUserWithRetries(ctx, target, mgr, UpdateRetries)
-}
-
-func updateApplicationUserWithRetries(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
-	user, err := mgr.SqlUserClient.Get(ctx, target.AppUsername)
-	if err != nil {
-		return fmt.Errorf("failed to get user: %w", err)
-	}
-
-	// update label and annotation to force update of user in instance
-	user.ObjectMeta.Labels["migrator.nais.io/touched"] = strconv.FormatInt(time.Now().Unix(), 10)
-	user.ObjectMeta.Annotations["cnrm.cloud.google.com/observed-secret-versions"] = "{}"
-
-	user, err = mgr.SqlUserClient.Update(ctx, user)
-	if err != nil {
-		if errors.IsConflict(err) && retries > 0 {
-			mgr.Logger.Info("retrying update of user", "remaining_retries", retries)
-			return updateApplicationUserWithRetries(ctx, target, mgr, retries-1)
+	for {
+		mgr.Logger.Debug("waiting for user to be up to date")
+		sqlUser, err := mgr.SqlUserClient.Get(ctx, target.AppUsername)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				time.Sleep(1 * time.Second)
+				continue
+			}
 		}
-		return fmt.Errorf("failed to update user: %w", err)
+
+		if sqlUser.Status.Conditions[0].Reason != "UpToDate" {
+			time.Sleep(3 * time.Second)
+			continue
+		}
+		break
 	}
-	return nil
+
+	return database.SetDatabasePassword(ctx, target.Name, target.AppUsername, target.AppPassword, gcpProject, mgr)
 }
 
 func DeleteHelperApplication(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
