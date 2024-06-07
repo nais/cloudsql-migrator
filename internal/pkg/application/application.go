@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/database"
@@ -40,7 +41,23 @@ func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.
 func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) (*nais_io_v1alpha1.Application, error) {
 	mgr.Logger.Info("updating application to use new instance", "name", cfg.ApplicationName)
 
-	return updateApplicationInstanceWithRetries(ctx, cfg, mgr, UpdateRetries)
+	app, err := updateApplicationInstanceWithRetries(ctx, cfg, mgr, UpdateRetries)
+	if err != nil {
+		return nil, err
+	}
+
+	// Make sure naiserator and sqeletor has reacted before returning, so downstream resources have been updated
+	time.Sleep(15 * time.Second)
+	for app.Status.SynchronizationState != "RolloutComplete" {
+		mgr.Logger.Info("waiting for app rollout", "appName", app.Name)
+		time.Sleep(5 * time.Second)
+		app, err = mgr.AppClient.Get(ctx, app.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return app, err
 }
 
 func updateApplicationInstanceWithRetries(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, retries int) (*nais_io_v1alpha1.Application, error) {
@@ -73,14 +90,17 @@ func updateApplicationInstanceWithRetries(ctx context.Context, cfg *config.Confi
 func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	mgr.Logger.Info("updating application user")
 
+	getCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
 	for {
-		mgr.Logger.Debug("waiting for user to be up to date")
-		sqlUser, err := mgr.SqlUserClient.Get(ctx, target.AppUsername)
+		mgr.Logger.Debug("waiting for user to be up to date", "user", target.AppUsername)
+		sqlUser, err := mgr.SqlUserClient.Get(getCtx, target.AppUsername)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				time.Sleep(1 * time.Second)
 				continue
 			}
+			return fmt.Errorf("failed to get sql user: %w", err)
 		}
 
 		if sqlUser.Status.Conditions[0].Reason != "UpToDate" {

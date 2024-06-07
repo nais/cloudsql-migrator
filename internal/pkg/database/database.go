@@ -3,14 +3,18 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
+	"google.golang.org/api/googleapi"
+	"google.golang.org/api/sqladmin/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"log/slog"
+	"net/http"
 	"strconv"
 	"time"
 )
@@ -36,7 +40,7 @@ func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *reso
 	return nil
 }
 
-func DeleteTargetDatabase(ctx context.Context, cfg *config.Config, target *resolved.Instance, databaseName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
+func DeleteHelperTargetDatabase(ctx context.Context, cfg *config.Config, target *resolved.Instance, databaseName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
 		return err
@@ -67,6 +71,18 @@ func DeleteTargetDatabase(ctx context.Context, cfg *config.Config, target *resol
 	return nil
 }
 
+func DeleteTargetDatabaseResource(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) error {
+	mgr.Logger.Info("deleting kubernetes database resource for target instance")
+	err := mgr.SqlDatabaseClient.DeleteCollection(ctx, metav1.ListOptions{
+		LabelSelector: "app=" + cfg.ApplicationName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete databases from target instance: %w", err)
+	}
+
+	return nil
+}
+
 func PrepareTargetDatabase(ctx context.Context, cfg *config.Config, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	databasePassword := makePassword(cfg, mgr.Logger)
 	err := SetDatabasePassword(ctx, cfg.TargetInstance.Name, config.PostgresDatabaseUser, databasePassword, gcpProject, mgr)
@@ -92,16 +108,33 @@ func SetDatabasePassword(ctx context.Context, instance string, userName string, 
 	mgr.Logger.Info("updating Cloud SQL user password", "instance", instance, "user", userName)
 
 	usersService := mgr.SqlAdminService.Users
-	user, err := usersService.Get(gcpProject.Id, instance, userName).Context(ctx).Do()
-	if err != nil {
-		return err
-	}
 
-	user.Password = password
+	updateCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
 
-	op, err := usersService.Update(gcpProject.Id, instance, user).Name(user.Name).Host(user.Host).Context(ctx).Do()
-	if err != nil {
-		return fmt.Errorf("failed to update Cloud SQL user password: %w", err)
+	var err error
+	var op *sqladmin.Operation
+
+	for {
+		var user *sqladmin.User
+		user, err = getSqlUser(updateCtx, instance, userName, gcpProject, mgr)
+		if err != nil {
+			return err
+		}
+
+		user.Password = password
+
+		op, err = usersService.Update(gcpProject.Id, instance, user).Name(user.Name).Host(user.Host).Context(updateCtx).Do()
+		if err != nil {
+			var ae *googleapi.Error
+			if errors.As(err, &ae) && ae.Code == http.StatusConflict {
+				mgr.Logger.Info("user not found, retrying", "user", user.Name)
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			return fmt.Errorf("failed to update Cloud SQL user password: %w", err)
+		}
+		break
 	}
 
 	operationsService := mgr.SqlAdminService.Operations
@@ -113,7 +146,32 @@ func SetDatabasePassword(ctx context.Context, instance string, userName string, 
 		}
 	}
 
+	mgr.Logger.Info("updated Cloud SQL user password", "user", userName)
+
 	return nil
+}
+
+func getSqlUser(ctx context.Context, instance string, userName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*sqladmin.User, error) {
+	usersService := mgr.SqlAdminService.Users
+
+	retries := 5
+	for {
+		user, err := usersService.Get(gcpProject.Id, instance, userName).Context(ctx).Do()
+		if err != nil {
+			var ae *googleapi.Error
+			if errors.As(err, &ae) && ae.Code == http.StatusNotFound {
+				retries -= 1
+				if retries > 0 {
+					mgr.Logger.Info("user not found, retrying", "remaining_retries", retries)
+					time.Sleep(3 * time.Second)
+					continue
+				}
+				return nil, fmt.Errorf("failed to get Cloud SQL user, ran out of retries: %w", err)
+			}
+			return nil, err
+		}
+		return user, nil
+	}
 }
 
 func installExtension(ctx context.Context, mgr *common_main.Manager, source *resolved.Instance, databaseName string, certPaths *instance.CertPaths) error {

@@ -78,7 +78,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		return nil, err
 	}
 	mgr.Logger.Info("started creation of target instance", "helperApp", helperName)
-	for app.Status.DeploymentRolloutStatus != "complete" {
+	for app.Status.SynchronizationState != "RolloutComplete" {
 		mgr.Logger.Info("waiting for dummy app rollout")
 		time.Sleep(5 * time.Second)
 		app, err = mgr.AppClient.Get(ctx, helperName)

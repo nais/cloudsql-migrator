@@ -112,6 +112,12 @@ func main() {
 		os.Exit(8)
 	}
 
+	err = database.DeleteTargetDatabaseResource(ctx, cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to delete target database resource", "error", err)
+		os.Exit(9)
+	}
+
 	app, err = application.UpdateApplicationInstance(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)

@@ -115,9 +115,18 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 		Name: name,
 	}
 
-	secret, err := mgr.K8sClient.CoreV1().Secrets(app.Namespace).Get(ctx, "google-sql-"+app.Name, meta_v1.GetOptions{})
-	if err != nil {
-		return nil, err
+	var secret *v1.Secret
+	for {
+		secret, err = mgr.K8sClient.CoreV1().Secrets(app.Namespace).Get(ctx, "google-sql-"+app.Name, meta_v1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				mgr.Logger.Info("waiting for secret to be created", "secret", "google-sql-"+app.Name)
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			return nil, err
+		}
+		break
 	}
 
 	err = instance.resolveAppUsername(secret)
@@ -136,7 +145,7 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 		sqlInstance, err = mgr.SqlInstanceClient.Get(ctx, instance.Name)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				time.Sleep(1 * time.Second)
+				time.Sleep(3 * time.Second)
 				continue
 			}
 		}

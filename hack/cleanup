@@ -1,0 +1,22 @@
+#!/bin/bash
+
+NUM="${1}"
+
+if [ -z "${NUM}" ]; then
+    echo "Usage: $0 <number>"
+    exit 1
+fi
+
+script_path=$(dirname "$(realpath -s "$0")")
+
+"${script_path}/run" cleanup "${NUM}"
+
+kubectl patch app "db-tester-${NUM}" --type=json -p '[{"op": "replace", "path": "/spec/gcp/sqlInstances/0/cascadingDelete", "value": true}]'
+sleep 5
+kubectl delete app "db-tester-${NUM}"
+kubectl delete app -lmigrator.nais.io/cleanup=db-tester-"${NUM}"
+sleep 5
+kubectl delete sqlsslcert -lapp=db-tester-"${NUM}"
+kubectl delete sqluser -lapp=db-tester-"${NUM}"
+kubectl delete sqldatabase -lapp=db-tester-"${NUM}"
+kubectl delete sqlinstance -lapp=db-tester-"${NUM}"
