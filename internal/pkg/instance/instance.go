@@ -87,28 +87,6 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		}
 	}
 
-	mgr.Logger.Info("deleting kubernetes database resource for target instance")
-	err = mgr.SqlDatabaseClient.DeleteCollection(ctx, metav1.ListOptions{
-		LabelSelector: "app=" + helperName,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to delete databases from target instance: %w", err)
-	}
-
-	mgr.Logger.Info("deleting database in target instance")
-	op, err := mgr.SqlAdminService.Databases.Delete(gcpProject.Id, targetInstance.Name, databaseName).Context(ctx).Do()
-	if err != nil {
-		return nil, fmt.Errorf("failed to delete database from target instance: %w", err)
-	}
-
-	for op.Status != "DONE" {
-		time.Sleep(1 * time.Second)
-		op, err = mgr.SqlAdminService.Operations.Get(gcpProject.Id, op.Name).Context(ctx).Do()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get delete operation status: %w", err)
-		}
-	}
-
 	return resolved.ResolveInstance(ctx, dummyApp, mgr)
 }
 

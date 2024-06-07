@@ -65,6 +65,12 @@ func main() {
 		os.Exit(3)
 	}
 
+	err = database.DeleteTargetDatabase(ctx, cfg, target, databaseName, gcpProject, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to delete database from intended target instance", "error", err)
+		os.Exit(4)
+	}
+
 	err = backup.CreateBackup(ctx, cfg, source.Name, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)

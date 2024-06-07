@@ -8,6 +8,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"log/slog"
 	"strconv"
@@ -30,6 +31,37 @@ func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *reso
 	err = installExtension(ctx, mgr, source, databaseName, certPaths)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func DeleteTargetDatabase(ctx context.Context, cfg *config.Config, target *resolved.Instance, databaseName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
+	helperName, err := common_main.HelperName(cfg.ApplicationName)
+	if err != nil {
+		return err
+	}
+
+	mgr.Logger.Info("deleting kubernetes database resource for target instance")
+	err = mgr.SqlDatabaseClient.DeleteCollection(ctx, metav1.ListOptions{
+		LabelSelector: "app=" + helperName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete databases from target instance: %w", err)
+	}
+
+	mgr.Logger.Info("deleting database in target instance")
+	op, err := mgr.SqlAdminService.Databases.Delete(gcpProject.Id, target.Name, databaseName).Context(ctx).Do()
+	if err != nil {
+		return fmt.Errorf("failed to delete database from target instance: %w", err)
+	}
+
+	for op.Status != "DONE" {
+		time.Sleep(1 * time.Second)
+		op, err = mgr.SqlAdminService.Operations.Get(gcpProject.Id, op.Name).Context(ctx).Do()
+		if err != nil {
+			return fmt.Errorf("failed to get delete operation status: %w", err)
+		}
 	}
 
 	return nil
