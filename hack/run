@@ -1,0 +1,24 @@
+#!/bin/bash
+
+export ACTION="${1}"
+export NUM=${2:-"0"}
+
+if [[ -z "${ACTION}" ]]; then
+  echo "Usage: $0 <action> [num]"
+  exit 1
+fi
+
+while IFS="" read -r p
+do
+  if [[ -z "${p}" ]]; then
+    continue
+  fi
+  eval export "${p}"
+done < ./env
+
+script_path=$(dirname "$(realpath -s "$0")")
+exe_path="${script_path}/../bin/${ACTION}"
+
+echo "Executing ${exe_path} for application ${APP_NAME}"
+
+${exe_path}

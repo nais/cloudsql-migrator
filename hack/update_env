@@ -1,0 +1,15 @@
+#!/bin/bash
+
+export NUM=${1:-"0"}
+
+script_path=$(dirname "$(realpath -s "$0")")
+
+truncate --size 0 .env
+
+while IFS="" read -r p
+do
+  if [[ -z "${p}" ]]; then
+    continue
+  fi
+  eval echo "${p}" >> .env
+done < "${script_path}/env"
