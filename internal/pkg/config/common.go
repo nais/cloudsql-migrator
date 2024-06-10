@@ -11,7 +11,7 @@ type TargetInstance struct {
 	Name     string `env:"NAME, required"`
 	Type     string `env:"TYPE"`
 	Tier     string `env:"TIER"`
-	DiskSize int
+	DiskSize int    `env:"DISK_SIZE"`
 }
 
 type Config struct {
