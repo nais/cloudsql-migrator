@@ -12,7 +12,7 @@ replace github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp => ./invalid
 require (
 	cloud.google.com/go/clouddms v1.7.6
 	cloud.google.com/go/monitoring v1.19.0
-	github.com/GoogleCloudPlatform/k8s-config-connector v1.118.2
+	github.com/GoogleCloudPlatform/k8s-config-connector v1.119.0
 	github.com/lib/pq v1.10.9
 	github.com/nais/liberator v0.0.0-20240508112139-876aae49c479
 	github.com/sethvargo/go-envconfig v1.0.3
