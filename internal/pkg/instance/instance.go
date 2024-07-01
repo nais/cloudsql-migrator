@@ -33,10 +33,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		return nil, err
 	}
 
-	targetInstance, err := DefineTargetInstance(cfg, app)
-	if err != nil {
-		return nil, err
-	}
+	targetInstance := DefineInstance(&cfg.TargetInstance, app)
 
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
@@ -90,23 +87,23 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 	return resolved.ResolveInstance(ctx, dummyApp, mgr)
 }
 
-func DefineTargetInstance(cfg *config.Config, app *nais_io_v1alpha1.Application) (*nais_io_v1.CloudSqlInstance, error) {
+func DefineInstance(instanceSettings *config.InstanceSettings, app *nais_io_v1alpha1.Application) *nais_io_v1.CloudSqlInstance {
 	sourceInstance := app.Spec.GCP.SqlInstances[0]
-	targetInstance := sourceInstance.DeepCopy()
+	instance := sourceInstance.DeepCopy()
 
-	targetInstance.Name = cfg.TargetInstance.Name
-	targetInstance.CascadingDelete = false
-	if cfg.TargetInstance.Tier != "" {
-		targetInstance.Tier = cfg.TargetInstance.Tier
+	instance.Name = instanceSettings.Name
+	instance.CascadingDelete = false
+	if instanceSettings.Tier != "" {
+		instance.Tier = instanceSettings.Tier
 	}
-	if cfg.TargetInstance.DiskSize != 0 {
-		targetInstance.DiskSize = cfg.TargetInstance.DiskSize
+	if instanceSettings.DiskSize != 0 {
+		instance.DiskSize = instanceSettings.DiskSize
 	}
-	if cfg.TargetInstance.Type != "" {
-		targetInstance.Type = nais_io_v1.CloudSqlInstanceType(cfg.TargetInstance.Type)
+	if instanceSettings.Type != "" {
+		instance.Type = nais_io_v1.CloudSqlInstanceType(instanceSettings.Type)
 	}
 
-	return targetInstance, nil
+	return instance
 }
 
 func PrepareSourceInstance(ctx context.Context, cfg *config.Config, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {

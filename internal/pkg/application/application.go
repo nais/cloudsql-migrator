@@ -38,10 +38,10 @@ func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.
 	return nil
 }
 
-func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) (*nais_io_v1alpha1.Application, error) {
+func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instanceSettings *config.InstanceSettings, mgr *common_main.Manager) (*nais_io_v1alpha1.Application, error) {
 	mgr.Logger.Info("updating application to use new instance", "name", cfg.ApplicationName)
 
-	app, err := updateApplicationInstanceWithRetries(ctx, cfg, mgr, UpdateRetries)
+	app, err := updateApplicationInstanceWithRetries(ctx, cfg, instanceSettings, mgr, UpdateRetries)
 	if err != nil {
 		return nil, err
 	}
@@ -60,17 +60,13 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, mgr *com
 	return app, err
 }
 
-func updateApplicationInstanceWithRetries(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, retries int) (*nais_io_v1alpha1.Application, error) {
+func updateApplicationInstanceWithRetries(ctx context.Context, cfg *config.Config, instanceSettings *config.InstanceSettings, mgr *common_main.Manager, retries int) (*nais_io_v1alpha1.Application, error) {
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		return nil, err
 	}
 
-	targetInstance, err := instance.DefineTargetInstance(cfg, app)
-	if err != nil {
-		return nil, err
-	}
-
+	targetInstance := instance.DefineInstance(instanceSettings, app)
 	app.Spec.GCP.SqlInstances = []nais_io_v1.CloudSqlInstance{
 		*targetInstance,
 	}
@@ -79,7 +75,7 @@ func updateApplicationInstanceWithRetries(ctx context.Context, cfg *config.Confi
 	if err != nil {
 		if errors.IsConflict(err) && retries > 0 {
 			mgr.Logger.Info("retrying update of application", "remaining_retries", retries)
-			return updateApplicationInstanceWithRetries(ctx, cfg, mgr, retries-1)
+			return updateApplicationInstanceWithRetries(ctx, cfg, instanceSettings, mgr, retries-1)
 		}
 		return nil, err
 	}

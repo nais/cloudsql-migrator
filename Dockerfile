@@ -32,3 +32,4 @@ WORKDIR /
 COPY --from=builder /workspace/bin/setup /setup
 COPY --from=builder /workspace/bin/promote /promote
 COPY --from=builder /workspace/bin/cleanup /cleanup
+COPY --from=builder /workspace/bin/rollback /rollback

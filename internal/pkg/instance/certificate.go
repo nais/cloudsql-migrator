@@ -109,3 +109,34 @@ func createTempFile(data, filename string) (string, error) {
 
 	return f.Name(), nil
 }
+
+func DeleteSslCertByCommonName(ctx context.Context, instanceName, commonName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
+	sslCertsService := mgr.SqlAdminService.SslCerts
+	operationsService := mgr.SqlAdminService.Operations
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	listResponse, err := sslCertsService.List(gcpProject.Id, instanceName).Context(ctx).Do()
+	if err != nil {
+		return fmt.Errorf("failed to list ssl certs: %w", err)
+	}
+
+	for _, item := range listResponse.Items {
+		if item.CommonName == commonName {
+			mgr.Logger.Info("deleting ssl certificate", "commonName", commonName)
+			op, err := sslCertsService.Delete(gcpProject.Id, instanceName, item.Sha1Fingerprint).Context(ctx).Do()
+			for op.Status != "DONE" {
+				time.Sleep(1 * time.Second)
+				op, err = operationsService.Get(gcpProject.Id, op.Name).Context(ctx).Do()
+				if err != nil {
+					return fmt.Errorf("failed to get ssl cert delete operation status: %w", err)
+				}
+			}
+			return nil
+		}
+	}
+
+	mgr.Logger.Warn("ssl cert not found", "commonName", commonName)
+	return nil
+}

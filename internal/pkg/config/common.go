@@ -7,7 +7,7 @@ const (
 	DatabaseDriver       = "postgres"
 )
 
-type TargetInstance struct {
+type InstanceSettings struct {
 	Name     string `env:"NAME, required"`
 	Type     string `env:"TYPE"`
 	Tier     string `env:"TIER"`
@@ -20,7 +20,7 @@ type Config struct {
 	// The namespace to work in
 	Namespace string `env:"NAMESPACE, required"`
 	// New instance configuration
-	TargetInstance TargetInstance `env:", prefix=TARGET_INSTANCE_"`
+	TargetInstance InstanceSettings `env:", prefix=TARGET_INSTANCE_"`
 
 	// Logging configuration
 	Logging

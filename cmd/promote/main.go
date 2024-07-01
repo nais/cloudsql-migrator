@@ -118,7 +118,7 @@ func main() {
 		os.Exit(9)
 	}
 
-	app, err = application.UpdateApplicationInstance(ctx, cfg, mgr)
+	app, err = application.UpdateApplicationInstance(ctx, cfg, &cfg.TargetInstance, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
 		os.Exit(9)
