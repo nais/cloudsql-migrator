@@ -103,7 +103,7 @@ When the replica is up-to-date
 3. Wait for promotion complete
 4. Fix ownership in the database
 5. Change the Application in the cluster to match the new instance, still with 0 replicas
-   - Remember not to delete old instances
+   - Remember not to delete source instances
 6. Scale up the app to the desired number of replicas
 7. Take an explicit backup after upgrading
 

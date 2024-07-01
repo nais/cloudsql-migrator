@@ -50,7 +50,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	migrationName, err := resolved.MigrationName(cfg.OldInstanceName, target.Name)
+	migrationName, err := resolved.MigrationName(cfg.SourceInstanceName, target.Name)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve migration name", "error", err)
 		os.Exit(3)
@@ -75,9 +75,9 @@ func main() {
 		os.Exit(6)
 	}
 
-	err = instance.DeleteInstance(ctx, cfg.OldInstanceName, gcpProject, mgr)
+	err = instance.DeleteInstance(ctx, cfg.SourceInstanceName, gcpProject, mgr)
 	if err != nil {
-		mgr.Logger.Error("failed to delete old instance", "error", err)
+		mgr.Logger.Error("failed to delete source instance", "error", err)
 		os.Exit(7)
 	}
 

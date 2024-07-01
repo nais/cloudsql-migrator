@@ -3,7 +3,7 @@ LOG_LEVEL=DEBUG
 APP_NAME=db-tester-${NUM}
 NAMESPACE=basseng
 
-OLD_INSTANCE_NAME=not-same-as-app-${NUM}
+SOURCE_INSTANCE_NAME=not-same-as-app-${NUM}
 TARGET_INSTANCE_NAME=db-tester-name-${NUM}
 
 DEVELOPMENT_MODE_SKIP_BACKUP=true
