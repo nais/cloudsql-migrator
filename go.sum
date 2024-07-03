@@ -46,6 +46,8 @@ github.com/GoogleCloudPlatform/k8s-config-connector v1.118.2 h1:efkpSUr65yCjJ/XI
 github.com/GoogleCloudPlatform/k8s-config-connector v1.118.2/go.mod h1:dYmEC+lgAOVbDnZ2qrnPFiaIqNSUKHRQksPvDR0WbbA=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.119.0 h1:azdJ5sOpXXg1y06Zh1rkPi6qm0xsiwPgSK48tlR89Cw=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.119.0/go.mod h1:7YttIMgv33j7n1u03eX1a6ujUo1xGQ88njtb3upNfj0=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.120.0 h1:AIX5tc9J1xCTTskoESL2woGcukU8gFyQgToxaTxzbGE=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.120.0/go.mod h1:WWycucuPEgQJyvHeg+xG0WRBRkMnD2AUStSLLwOgArw=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
@@ -121,6 +123,7 @@ github.com/google/gofuzz v1.2.0 h1:xRy4A+RhZaiKjJ1bPfwQ8sedCA+YS2YcCHW6ec7JMi0=
 github.com/google/gofuzz v1.2.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/google/pprof v0.0.0-20210804190019-f964ff605595 h1:uNrRgpnKjTfxu4qHaZAAs3eKTYV1EzGF3dAykpnxgDE=
 github.com/google/pprof v0.0.0-20210804190019-f964ff605595/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
+github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 h1:hR7/MlvK23p6+lIw9SN1TigNLn9ZnF3W4SYRKq2gAHs=
 github.com/google/s2a-go v0.1.7 h1:60BLSyTrOV4/haCDW4zb1guZItoSq8foHCXrAnjBo/o=
 github.com/google/s2a-go v0.1.7/go.mod h1:50CgR4k1jNlWBu4UfS4AcfhVe1r6pdZPygJ3R8F0Qdw=
 github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
