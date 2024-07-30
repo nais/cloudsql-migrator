@@ -32,6 +32,11 @@ Before setup and after promotion we create a backup of the instance in use.
 
 Run the application from command line with environment variables exported. 
 
+You can build the executable files by typing:
+```shell
+make
+```
+
 #### Environment variables
 | Variable                 | Description                          | Required |
 |--------------------------|--------------------------------------|----------|
