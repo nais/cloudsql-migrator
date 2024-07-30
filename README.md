@@ -34,7 +34,7 @@ Run the application from command line with environment variables exported.
 
 You can build the executable files by typing:
 ```shell
-make
+make all
 ```
 
 #### Environment variables
