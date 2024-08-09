@@ -37,6 +37,8 @@ cloud.google.com/go/clouddms v1.7.9 h1:rXdAENHOQTrS6dsgKYfainlEy0uzQAeOS3enFsB+8
 cloud.google.com/go/clouddms v1.7.9/go.mod h1:U2j8sOFtsIovea96mz2joyNMULl43TGadf7tOAUKKzs=
 cloud.google.com/go/clouddms v1.7.10 h1:EA3y9v5TZiAlwgHJh2vPOEelqYiCxXBYZRCNnGK5q+g=
 cloud.google.com/go/clouddms v1.7.10/go.mod h1:PzHELq0QDyA7VaD9z6mzh2mxeBz4kM6oDe8YxMxd4RA=
+cloud.google.com/go/clouddms v1.7.11 h1:pc78L2+BP6ex67gHqr1YjJ3uGo9gKLRCYk2hzzs9P2g=
+cloud.google.com/go/clouddms v1.7.11/go.mod h1:rPNK0gJEkF2//rdxhCKhx+IFBlzkObOZhlhvDY1JKCE=
 cloud.google.com/go/compute/metadata v0.3.0 h1:Tz+eQXMEqDIKRsmY3cHTL6FVaynIjX2QxYC4trgAKZc=
 cloud.google.com/go/compute/metadata v0.3.0/go.mod h1:zFmK7XCadkQkj6TtorcaGlCW1hT1fIilQDwofLpJ20k=
 cloud.google.com/go/compute/metadata v0.4.0 h1:vHzJCWaM4g8XIcm8kopr3XmDA4Gy/lblD3EhhSux05c=
