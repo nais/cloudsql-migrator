@@ -11,7 +11,7 @@ replace github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp => ./invalid
 
 require (
 	cloud.google.com/go/clouddms v1.7.10
-	cloud.google.com/go/monitoring v1.20.3
+	cloud.google.com/go/monitoring v1.20.4
 	github.com/GoogleCloudPlatform/k8s-config-connector v1.121.0
 	github.com/lib/pq v1.10.9
 	github.com/nais/liberator v0.0.0-20240508112139-876aae49c479
@@ -26,7 +26,7 @@ require (
 
 require (
 	cloud.google.com/go v0.115.0 // indirect
-	cloud.google.com/go/auth v0.7.3 // indirect
+	cloud.google.com/go/auth v0.8.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.3 // indirect
 	cloud.google.com/go/compute/metadata v0.5.0 // indirect
 	cloud.google.com/go/iam v1.1.12 // indirect
