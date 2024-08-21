@@ -47,6 +47,8 @@ cloud.google.com/go/clouddms v1.7.10 h1:EA3y9v5TZiAlwgHJh2vPOEelqYiCxXBYZRCNnGK5
 cloud.google.com/go/clouddms v1.7.10/go.mod h1:PzHELq0QDyA7VaD9z6mzh2mxeBz4kM6oDe8YxMxd4RA=
 cloud.google.com/go/clouddms v1.7.11 h1:pc78L2+BP6ex67gHqr1YjJ3uGo9gKLRCYk2hzzs9P2g=
 cloud.google.com/go/clouddms v1.7.11/go.mod h1:rPNK0gJEkF2//rdxhCKhx+IFBlzkObOZhlhvDY1JKCE=
+cloud.google.com/go/clouddms v1.8.0 h1:BBPvI//wT1n3ruqVGDgCxBdpu9/era/b3B/HsiY8SyU=
+cloud.google.com/go/clouddms v1.8.0/go.mod h1:JUgTgqd1M9iPa7p3jodjLTuecdkGTcikrg7nz++XB5E=
 cloud.google.com/go/compute/metadata v0.3.0 h1:Tz+eQXMEqDIKRsmY3cHTL6FVaynIjX2QxYC4trgAKZc=
 cloud.google.com/go/compute/metadata v0.3.0/go.mod h1:zFmK7XCadkQkj6TtorcaGlCW1hT1fIilQDwofLpJ20k=
 cloud.google.com/go/compute/metadata v0.4.0 h1:vHzJCWaM4g8XIcm8kopr3XmDA4Gy/lblD3EhhSux05c=
@@ -61,6 +63,8 @@ cloud.google.com/go/iam v1.1.10 h1:ZSAr64oEhQSClwBL670MsJAW5/RLiC6kfw3Bqmd5ZDI=
 cloud.google.com/go/iam v1.1.10/go.mod h1:iEgMq62sg8zx446GCaijmA2Miwg5o3UbO+nI47WHJps=
 cloud.google.com/go/iam v1.1.12 h1:JixGLimRrNGcxvJEQ8+clfLxPlbeZA6MuRJ+qJNQ5Xw=
 cloud.google.com/go/iam v1.1.12/go.mod h1:9LDX8J7dN5YRyzVHxwQzrQs9opFFqn0Mxs9nAeB+Hhg=
+cloud.google.com/go/iam v1.1.13 h1:7zWBXG9ERbMLrzQBRhFliAV+kjcRToDTgQT3CTwYyv4=
+cloud.google.com/go/iam v1.1.13/go.mod h1:K8mY0uSXwEXS30KrnVb+j54LB/ntfZu1dr+4zFMNbus=
 cloud.google.com/go/longrunning v0.5.6 h1:xAe8+0YaWoCKr9t1+aWe+OeQgN/iJK1fEgZSXmjuEaE=
 cloud.google.com/go/longrunning v0.5.6/go.mod h1:vUaDrWYOMKRuhiv6JBnn49YxCPz2Ayn9GqyjaBT8/mA=
 cloud.google.com/go/longrunning v0.5.7 h1:WLbHekDbjK1fVFD3ibpFFVoyizlLRl73I7YKuAKilhU=
