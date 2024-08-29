@@ -17,7 +17,7 @@ require (
 	github.com/nais/liberator v0.0.0-20240508112139-876aae49c479
 	github.com/sethvargo/go-envconfig v1.1.0
 	google.golang.org/api v0.195.0
-	google.golang.org/grpc v1.65.0
+	google.golang.org/grpc v1.66.0
 	k8s.io/api v0.30.0
 	k8s.io/apimachinery v0.30.0
 	k8s.io/client-go v0.29.0
