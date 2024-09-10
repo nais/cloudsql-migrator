@@ -12,7 +12,7 @@ replace github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp => ./invalid
 require (
 	cloud.google.com/go/clouddms v1.8.0
 	cloud.google.com/go/monitoring v1.21.0
-	github.com/GoogleCloudPlatform/k8s-config-connector v1.121.0
+	github.com/GoogleCloudPlatform/k8s-config-connector v1.122.0
 	github.com/lib/pq v1.10.9
 	github.com/nais/liberator v0.0.0-20240508112139-876aae49c479
 	github.com/sethvargo/go-envconfig v1.1.0
@@ -64,7 +64,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.18.0 // indirect
-	github.com/prometheus/client_model v0.5.0 // indirect
+	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
