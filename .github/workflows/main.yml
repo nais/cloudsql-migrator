@@ -37,5 +37,15 @@ jobs:
           multi-platform: true
           cache_from: type=gha
           cache_to: type=gha,mode=max
+      - name: Create release
+        if: github.ref == 'refs/heads/main'
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ steps.build-push-sign.outputs.version }}"
+          name: "Release ${{ steps.build-push-sign.outputs.version }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
     outputs:
       version: "${{ steps.build-push-sign.outputs.version }}"
