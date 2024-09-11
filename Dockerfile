@@ -1,7 +1,5 @@
-# Build the manager binary
-FROM --platform=$BUILDPLATFORM golang:1.22 as builder
+FROM --platform=$BUILDPLATFORM golang:1.22 AS builder
 
-# download kubebuilder and extract it to tmp
 ARG BUILDOS BUILDARCH
 
 WORKDIR /workspace
@@ -19,7 +17,7 @@ ENV GOOS=$TARGETOS GOARCH=$TARGETARCH
 RUN go build std
 
 # Copy rest of project
-COPY . /workspace
+COPY . .
 
 # Run tests
 RUN make test
