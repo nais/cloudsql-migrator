@@ -1,4 +1,4 @@
-package k8s
+package netpol
 
 import (
 	"context"

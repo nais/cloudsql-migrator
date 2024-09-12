@@ -7,8 +7,8 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/backup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/database"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
-	"github.com/nais/cloudsql-migrator/internal/pkg/k8s"
 	"github.com/nais/cloudsql-migrator/internal/pkg/migration"
+	"github.com/nais/cloudsql-migrator/internal/pkg/netpol"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"os"
 
@@ -84,7 +84,7 @@ func main() {
 		os.Exit(10)
 	}
 
-	err = k8s.CreateNetworkPolicy(ctx, cfg, source, target, mgr)
+	err = netpol.CreateNetworkPolicy(ctx, cfg, source, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to create network policy", "error", err)
 		os.Exit(11)
