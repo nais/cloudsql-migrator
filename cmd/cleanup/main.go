@@ -33,7 +33,7 @@ func main() {
 	gcpProject, err := resolved.ResolveGcpProject(ctx, &cfg.Config, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve GCP project ID", "error", err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 
 	mgr.Logger.Info("cleanup started", "config", cfg)
@@ -41,44 +41,44 @@ func main() {
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		mgr.Logger.Error("failed to get application", "error", err)
-		os.Exit(2)
+		os.Exit(3)
 	}
 
 	target, err := resolved.ResolveInstance(ctx, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve target", "error", err)
-		os.Exit(2)
+		os.Exit(4)
 	}
 
 	migrationName, err := resolved.MigrationName(cfg.SourceInstanceName, target.Name)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve migration name", "error", err)
-		os.Exit(3)
+		os.Exit(5)
 	}
 
 	err = migration.DeleteMigrationJob(ctx, migrationName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete migration job", "error", err)
-		os.Exit(4)
+		os.Exit(6)
 	}
 
 	err = instance.CleanupConnectionProfiles(ctx, &cfg.Config, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to cleanup connection profiles", "error", err)
-		os.Exit(5)
+		os.Exit(7)
 	}
 
 	masterInstanceName := fmt.Sprintf("%s-master", target.Name)
 	err = instance.DeleteInstance(ctx, masterInstanceName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete master instance", "error", err)
-		os.Exit(6)
+		os.Exit(8)
 	}
 
 	err = instance.DeleteInstance(ctx, cfg.SourceInstanceName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete source instance", "error", err)
-		os.Exit(7)
+		os.Exit(9)
 	}
 
 	mgr.Logger.Info("deleting SQL SSL Certificates used during migration")
@@ -87,19 +87,19 @@ func main() {
 	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete SQL SSL Certificates", "error", err)
-		os.Exit(8)
+		os.Exit(10)
 	}
 
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
 		mgr.Logger.Error("failed to get helper name", "error", err)
-		os.Exit(9)
+		os.Exit(11)
 	}
 
 	mgr.Logger.Info("deleting Network Policy used during migration")
 	err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Delete(ctx, helperName, v1.DeleteOptions{})
 	if err != nil {
 		mgr.Logger.Error("failed to delete Network Policy", "error", err)
-		os.Exit(10)
+		os.Exit(12)
 	}
 }

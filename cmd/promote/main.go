@@ -37,108 +37,108 @@ func main() {
 	gcpProject, err := resolved.ResolveGcpProject(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve GCP project ID", "error", err)
-		os.Exit(1)
+		os.Exit(3)
 	}
 
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		mgr.Logger.Error("failed to get application", "error", err)
-		os.Exit(2)
+		os.Exit(4)
 	}
 
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
 		mgr.Logger.Error("failed to get helper name", "error", err)
-		os.Exit(3)
+		os.Exit(5)
 	}
 
 	source, err := resolved.ResolveInstance(ctx, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve source", "error", err)
-		os.Exit(2)
+		os.Exit(6)
 	}
 
 	databaseName, err := resolved.ResolveDatabaseName(app)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve database name", "error", err)
-		os.Exit(3)
+		os.Exit(7)
 	}
 
 	helperApp, err := mgr.AppClient.Get(ctx, helperName)
 	if err != nil {
 		mgr.Logger.Error("failed to get helper application", "error", err)
-		os.Exit(4)
+		os.Exit(8)
 	}
 
 	target, err := resolved.ResolveInstance(ctx, helperApp, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve target", "error", err)
-		os.Exit(2)
+		os.Exit(9)
 	}
 
 	err = promote.CheckReadyForPromotion(ctx, source, target, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("migration is not ready for promotion", "error", err)
-		os.Exit(2)
+		os.Exit(10)
 	}
 
 	err = application.ScaleApplication(ctx, cfg, mgr, 0)
 	if err != nil {
 		mgr.Logger.Error("failed to scale application", "error", err)
-		os.Exit(3)
+		os.Exit(11)
 	}
 
 	err = promote.Promote(ctx, source, target, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to promote", "error", err)
-		os.Exit(4)
+		os.Exit(12)
 	}
 
 	certPaths, err := instance.CreateSslCert(ctx, cfg, mgr, target.Name, &target.SslCert)
 	if err != nil {
 		mgr.Logger.Error("failed to create ssl certificate", "error", err)
-		os.Exit(6)
+		os.Exit(13)
 	}
 
 	err = database.ChangeOwnership(ctx, mgr, target, databaseName, certPaths)
 	if err != nil {
 		mgr.Logger.Error("failed to change ownership", "error", err)
-		os.Exit(7)
+		os.Exit(14)
 	}
 
 	err = application.DeleteHelperApplication(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete helper application", "error", err)
-		os.Exit(8)
+		os.Exit(15)
 	}
 
 	err = database.DeleteTargetDatabaseResource(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete target database resource", "error", err)
-		os.Exit(9)
+		os.Exit(16)
 	}
 
 	app, err = application.UpdateApplicationInstance(ctx, cfg, &cfg.TargetInstance, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
-		os.Exit(9)
+		os.Exit(17)
 	}
 
 	target, err = resolved.ResolveInstance(ctx, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve updated target", "error", err)
-		os.Exit(2)
+		os.Exit(18)
 	}
 
 	err = application.UpdateApplicationUser(ctx, target, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application user", "error", err)
-		os.Exit(10)
+		os.Exit(19)
 	}
 
 	err = backup.CreateBackup(ctx, cfg, target.Name, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
-		os.Exit(12)
+		os.Exit(20)
 	}
 }

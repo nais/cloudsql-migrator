@@ -39,85 +39,85 @@ func main() {
 	gcpProject, err := resolved.ResolveGcpProject(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve GCP project ID", "error", err)
-		os.Exit(1)
+		os.Exit(3)
 	}
 
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		mgr.Logger.Error("failed to get application", "error", err)
-		os.Exit(2)
+		os.Exit(4)
 	}
 
 	source, err := resolved.ResolveInstance(ctx, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve source", "error", err)
-		os.Exit(2)
+		os.Exit(5)
 	}
 
 	databaseName, err := resolved.ResolveDatabaseName(app)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve database name", "error", err)
-		os.Exit(3)
+		os.Exit(6)
 	}
 
 	target, err := instance.CreateInstance(ctx, cfg, source, gcpProject, databaseName, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to create target instance", "error", err)
-		os.Exit(3)
+		os.Exit(7)
 	}
 
 	err = database.DeleteHelperTargetDatabase(ctx, cfg, target, databaseName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete database from intended target instance", "error", err)
-		os.Exit(4)
+		os.Exit(8)
 	}
 
 	err = backup.CreateBackup(ctx, cfg, source.Name, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
-		os.Exit(4)
+		os.Exit(9)
 	}
 
 	err = application.DisableCascadingDelete(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to disable cascading delete", "error", err)
-		os.Exit(5)
+		os.Exit(10)
 	}
 
 	err = k8s.CreateNetworkPolicy(ctx, cfg, source, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to create network policy", "error", err)
-		os.Exit(5)
+		os.Exit(11)
 	}
 
 	err = instance.PrepareSourceInstance(ctx, cfg, source, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source instance", "error", err)
-		os.Exit(6)
+		os.Exit(12)
 	}
 
 	err = database.PrepareSourceDatabase(ctx, cfg, source, databaseName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source database", "error", err)
-		os.Exit(7)
+		os.Exit(13)
 	}
 
 	err = instance.PrepareTargetInstance(ctx, cfg, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare target instance", "error", err)
-		os.Exit(8)
+		os.Exit(14)
 	}
 
 	err = database.PrepareTargetDatabase(ctx, cfg, target, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare target database", "error", err)
-		os.Exit(9)
+		os.Exit(15)
 	}
 
 	err = migration.SetupMigration(ctx, cfg, gcpProject, source, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to setup migration", "error", err)
-		os.Exit(10)
+		os.Exit(16)
 	}
 
 }
