@@ -19,12 +19,14 @@ import (
 	"net/http"
 	"os"
 	"os/user"
+	"strings"
 	"time"
 )
 
 const (
-	dummyAppImage = "europe-north1-docker.pkg.dev/nais-io/nais/images/kafka-debug:latest"
-	updateRetries = 3
+	dummyAppImage              = "europe-north1-docker.pkg.dev/nais-io/nais/images/kafka-debug:latest"
+	updateRetries              = 3
+	migrationAuthNetworkPrefix = "migrator:"
 )
 
 func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.Instance, gcpProject *resolved.GcpProject, databaseName string, mgr *common_main.Manager) (*resolved.Instance, error) {
@@ -145,14 +147,11 @@ func prepareSourceInstanceWithRetries(ctx context.Context, cfg *config.Config, s
 	}
 	sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
 
-	if cfg.Development.AddAuthNetwork {
-		authNetwork, err = createDevelopmentAuthNetwork()
-		if err != nil {
-			return err
-		}
-
-		sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
+	authNetwork, err = createMigratorAuthNetwork()
+	if err != nil {
+		return err
 	}
+	sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
 
 	setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
 	setFlag(sourceSqlInstance, "cloudsql.logical_decoding")
@@ -208,15 +207,13 @@ func prepareTargetInstanceWithRetries(ctx context.Context, cfg *config.Config, t
 
 	targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled = ptr.To(false)
 
-	if cfg.Development.AddAuthNetwork {
-		var authNetwork v1beta1.InstanceAuthorizedNetworks
-		authNetwork, err = createDevelopmentAuthNetwork()
-		if err != nil {
-			return err
-		}
-
-		targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(targetSqlInstance, authNetwork)
+	var authNetwork v1beta1.InstanceAuthorizedNetworks
+	authNetwork, err = createMigratorAuthNetwork()
+	if err != nil {
+		return err
 	}
+
+	targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(targetSqlInstance, authNetwork)
 
 	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
 	if err != nil {
@@ -296,12 +293,35 @@ func DeleteInstance(ctx context.Context, instanceName string, gcpProject *resolv
 	return nil
 }
 
-func createDevelopmentAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) {
+func CleanupAuthNetworks(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager) error {
+	return cleanupAuthNetworksWithRetries(ctx, target, mgr, updateRetries)
+}
+
+func cleanupAuthNetworksWithRetries(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
+	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get target instance: %w", err)
+	}
+
+	targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = removeMigrationAuthNetwork(targetSqlInstance)
+
+	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
+	if err != nil {
+		if k8s_errors.IsConflict(err) && retries > 0 {
+			mgr.Logger.Info("retrying update of target instance", "remaining_retries", retries)
+			return cleanupAuthNetworksWithRetries(ctx, target, mgr, retries-1)
+		}
+		return err
+	}
+	return nil
+}
+
+func createMigratorAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) {
 	outgoingIp, err := getOutgoingIp()
 	if err != nil {
 		return v1beta1.InstanceAuthorizedNetworks{}, err
 	}
-	name, err := getDeveloperName()
+	name, err := getNetworkName()
 	if err != nil {
 		return v1beta1.InstanceAuthorizedNetworks{}, err
 	}
@@ -313,7 +333,7 @@ func createDevelopmentAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) 
 	return authNetwork, nil
 }
 
-func getDeveloperName() (string, error) {
+func getNetworkName() (string, error) {
 	u, err := user.Current()
 	if err != nil {
 		return "", err
@@ -324,7 +344,7 @@ func getDeveloperName() (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("%s@%s", u.Username, h), nil
+	return fmt.Sprintf("%s%s@%s", migrationAuthNetworkPrefix, u.Username, h), nil
 }
 
 func getOutgoingIp() (string, error) {
@@ -343,6 +363,17 @@ func getOutgoingIp() (string, error) {
 	}
 
 	return string(data), nil
+}
+
+func removeMigrationAuthNetwork(sqlInstance *v1beta1.SQLInstance) []v1beta1.InstanceAuthorizedNetworks {
+	newAuthNetworks := make([]v1beta1.InstanceAuthorizedNetworks, 0)
+	for _, network := range sqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks {
+		if strings.HasPrefix(migrationAuthNetworkPrefix, *network.Name) {
+			continue
+		}
+		newAuthNetworks = append(newAuthNetworks, network)
+	}
+	return newAuthNetworks
 }
 
 func appendAuthNetIfNotExists(sqlInstance *v1beta1.SQLInstance, authNetwork v1beta1.InstanceAuthorizedNetworks) []v1beta1.InstanceAuthorizedNetworks {

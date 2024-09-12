@@ -81,25 +81,32 @@ func main() {
 		os.Exit(9)
 	}
 
+	mgr.Logger.Info("deleting authorized networks")
+	err = instance.CleanupAuthNetworks(ctx, target, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to cleanup authorized networks", "error", err)
+		os.Exit(10)
+	}
+
 	mgr.Logger.Info("deleting SQL SSL Certificates used during migration")
 	err = mgr.SqlSslCertClient.DeleteCollection(ctx, v1.ListOptions{
 		LabelSelector: "migrator.nais.io/cleanup=" + cfg.ApplicationName,
 	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete SQL SSL Certificates", "error", err)
-		os.Exit(10)
+		os.Exit(11)
 	}
 
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
 		mgr.Logger.Error("failed to get helper name", "error", err)
-		os.Exit(11)
+		os.Exit(12)
 	}
 
 	mgr.Logger.Info("deleting Network Policy used during migration")
 	err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Delete(ctx, helperName, v1.DeleteOptions{})
 	if err != nil {
 		mgr.Logger.Error("failed to delete Network Policy", "error", err)
-		os.Exit(12)
+		os.Exit(13)
 	}
 }

@@ -42,16 +42,12 @@ func CreateNetworkPolicy(ctx context.Context, cfg *config.Config, source *resolv
 			},
 			Egress: []v1.NetworkPolicyEgressRule{{
 				To: []v1.NetworkPolicyPeer{
-					{
-						IPBlock: &v1.IPBlock{
-							CIDR: fmt.Sprintf("%s/32", source.PrimaryIp),
-						},
-					},
-					{
-						IPBlock: &v1.IPBlock{
-							CIDR: fmt.Sprintf("%s/32", target.PrimaryIp),
-						},
-					},
+					makeIPBlock(source.PrimaryIp),
+					makeIPBlock(target.PrimaryIp),
+					// IPs for api.ipify.org
+					makeIPBlock("104.26.13.205"),
+					makeIPBlock("104.26.12.205"),
+					makeIPBlock("172.67.74.152"),
 				},
 			}},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
@@ -71,4 +67,12 @@ func CreateNetworkPolicy(ctx context.Context, cfg *config.Config, source *resolv
 	}
 
 	return nil
+}
+
+func makeIPBlock(ip string) v1.NetworkPolicyPeer {
+	return v1.NetworkPolicyPeer{
+		IPBlock: &v1.IPBlock{
+			CIDR: fmt.Sprintf("%s/32", ip),
+		},
+	}
 }

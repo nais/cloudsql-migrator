@@ -135,4 +135,3 @@ It is recommended to set the following environment variables:
 |------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `DEVELOPMENT_MODE_SKIP_BACKUP=true`      | Skip creating backups. These take long to create, and if developing, the backup is probably not needed.                                                                        |
 | `DEVELOPMENT_MODE_UNSAFE_PASSWORD=true`  | During setup/promotion, the password for the `postgres` user is changed. This setting makes the password always be `testpassword`.                                             |
-| `DEVELOPMENT_MODE_ADD_AUTH_NETWORK=true` | Parts of setup/promotion requires connecting to the instances. This settings adds the outgoing IP of the machine running setup/promote to authorized networks on the instance. |
