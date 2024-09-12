@@ -336,7 +336,7 @@ func createMigratorAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) {
 func getNetworkName() (string, error) {
 	u, err := user.Current()
 	if err != nil {
-		return "", err
+		u = &user.User{Username: "unknown"}
 	}
 
 	h, err := os.Hostname()
