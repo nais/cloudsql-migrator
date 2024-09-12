@@ -115,4 +115,17 @@ func main() {
 		mgr.Logger.Error("failed to delete SQL SSL Certificates", "error", err)
 		os.Exit(8)
 	}
+
+	helperName, err := common_main.HelperName(cfg.ApplicationName)
+	if err != nil {
+		mgr.Logger.Error("failed to get helper name", "error", err)
+		os.Exit(9)
+	}
+
+	mgr.Logger.Info("deleting Network Policy used during migration")
+	err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Delete(ctx, helperName, v1.DeleteOptions{})
+	if err != nil {
+		mgr.Logger.Error("failed to delete Network Policy", "error", err)
+		os.Exit(10)
+	}
 }

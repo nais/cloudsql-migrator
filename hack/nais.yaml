@@ -1,7 +1,7 @@
 kind: "Application"
 apiVersion: "nais.io/v1alpha1"
 metadata:
-  name: db-tester-3
+  name: db-tester-4
   namespace: basseng
   labels:
     team: basseng
@@ -22,7 +22,7 @@ spec:
     sqlInstances:
       - type: POSTGRES_13
         tier: db-custom-1-4096
-        name: not-same-as-app-3
+        name: not-same-as-app-4
         cascadingDelete: true
         databases:
           - name: nada-db-test
