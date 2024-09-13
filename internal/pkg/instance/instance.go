@@ -148,7 +148,7 @@ func WaitForInstanceToGoAway(ctx context.Context, name string, mgr *common_main.
 			return fmt.Errorf("failed to get instance: %w", err)
 		}
 		time.Sleep(3 * time.Second)
-		mgr.Logger.Info("waiting for instance %s to go away", instance.Name)
+		mgr.Logger.Info("waiting for instance to go away", "instance_waited_on", instance.Name)
 	}
 }
 
