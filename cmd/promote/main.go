@@ -112,9 +112,9 @@ func main() {
 		os.Exit(15)
 	}
 
-	err = database.DeleteTargetDatabaseResource(ctx, cfg, mgr)
+	err = instance.WaitForInstanceToGoAway(ctx, cfg.TargetInstance.Name, mgr)
 	if err != nil {
-		mgr.Logger.Error("failed to delete target database resource", "error", err)
+		mgr.Logger.Error("helper instance definition is stuck", "error", err)
 		os.Exit(16)
 	}
 

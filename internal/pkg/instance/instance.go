@@ -135,6 +135,23 @@ func PrepareSourceInstance(ctx context.Context, cfg *config.Config, source *reso
 	return nil
 }
 
+func WaitForInstanceToGoAway(ctx context.Context, name string, mgr *common_main.Manager) error {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+
+	for {
+		instance, err := mgr.SqlInstanceClient.Get(ctx, name)
+		if err != nil {
+			if k8s_errors.IsNotFound(err) {
+				return nil
+			}
+			return fmt.Errorf("failed to get instance: %w", err)
+		}
+		time.Sleep(3 * time.Second)
+		mgr.Logger.Info("waiting for instance %s to go away", instance.Name)
+	}
+}
+
 func prepareSourceInstanceWithRetries(ctx context.Context, cfg *config.Config, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
 	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
 	if err != nil {
