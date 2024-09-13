@@ -99,6 +99,8 @@ cloud.google.com/go/monitoring v1.20.4 h1:zwcViK7mT9SV0kzKqLOI3spRadvsmvw/R9z1MH
 cloud.google.com/go/monitoring v1.20.4/go.mod h1:v7F/UcLRw15EX7xq565N7Ae5tnYEE28+Cl717aTXG4c=
 cloud.google.com/go/monitoring v1.21.0 h1:EMc0tB+d3lUewT2NzKC/hr8cSR9WsUieVywzIHetGro=
 cloud.google.com/go/monitoring v1.21.0/go.mod h1:tuJ+KNDdJbetSsbSGTqnaBvbauS5kr3Q/koy3Up6r+4=
+cloud.google.com/go/monitoring v1.21.1 h1:zWtbIoBMnU5LP9A/fz8LmWMGHpk4skdfeiaa66QdFGc=
+cloud.google.com/go/monitoring v1.21.1/go.mod h1:Rj++LKrlht9uBi8+Eb530dIrzG/cU/lB8mt+lbeFK1c=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.118.1 h1:/zRuTOvzuZ5Tn8PerRseXhf3YaqH4sJCJiAkkZFhPY0=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.118.1/go.mod h1:+3/co3uY9kn68p+TFtO1pkoDeVMDC3jHFeuf8p5amFc=
