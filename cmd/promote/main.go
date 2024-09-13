@@ -114,33 +114,39 @@ func main() {
 		os.Exit(15)
 	}
 
+	err = database.DeleteTargetDatabaseResource(ctx, cfg, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to delete target database resource", "error", err)
+		os.Exit(16)
+	}
+
 	err = instance.WaitForInstanceToGoAway(ctx, cfg.TargetInstance.Name, mgr)
 	if err != nil {
 		mgr.Logger.Error("helper instance definition is stuck", "error", err)
-		os.Exit(16)
+		os.Exit(17)
 	}
 
 	app, err = application.UpdateApplicationInstance(ctx, cfg, &cfg.TargetInstance, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
-		os.Exit(17)
+		os.Exit(18)
 	}
 
 	target, err = resolved.ResolveInstance(ctx, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve updated target", "error", err)
-		os.Exit(18)
+		os.Exit(19)
 	}
 
 	err = application.UpdateApplicationUser(ctx, target, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application user", "error", err)
-		os.Exit(19)
+		os.Exit(20)
 	}
 
 	err = backup.CreateBackup(ctx, cfg, target.Name, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
-		os.Exit(20)
+		os.Exit(21)
 	}
 }
