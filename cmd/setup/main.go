@@ -11,6 +11,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/netpol"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"os"
+	"time"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
@@ -20,7 +21,8 @@ import (
 func main() {
 	cfg := &config.Config{}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
 
 	if err := envconfig.Process(ctx, cfg); err != nil {
 		fmt.Printf("Invalid configuration: %v", err)

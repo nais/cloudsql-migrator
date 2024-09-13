@@ -13,10 +13,12 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"github.com/sethvargo/go-envconfig"
 	"os"
+	"time"
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
 
 	cfg := &config.Config{}
 

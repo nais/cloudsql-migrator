@@ -11,12 +11,14 @@ import (
 	"github.com/sethvargo/go-envconfig"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
+	"time"
 )
 
 func main() {
 	cfg := config.CleanupConfig{}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
 
 	if err := envconfig.Process(ctx, &cfg); err != nil {
 		fmt.Printf("Invalid configuration: %v", err)
