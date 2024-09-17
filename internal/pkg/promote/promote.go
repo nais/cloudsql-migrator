@@ -10,9 +10,13 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"google.golang.org/api/datamigration/v1"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
+	"net/http"
 	"time"
 )
+
+const MigrationJobRetries = 3
 
 func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	migrationName, err := resolved.MigrationName(source.Name, target.Name)
@@ -22,9 +26,9 @@ func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instan
 
 	mgr.Logger.Info("checking if migration job is ready for promotion", "migrationName", migrationName)
 
-	migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(gcpProject.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
+	migrationJob, err := getMigrationJobWithRetry(ctx, migrationName, gcpProject, mgr, MigrationJobRetries)
 	if err != nil {
-		return fmt.Errorf("failed to get migration job: %w", err)
+		return err
 	}
 
 	if migrationJob.State != "RUNNING" {
@@ -41,6 +45,22 @@ func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instan
 	}
 
 	return nil
+}
+
+func getMigrationJobWithRetry(ctx context.Context, migrationName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager, retries int) (*datamigration.MigrationJob, error) {
+	migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(gcpProject.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
+	if err != nil {
+		var ae *googleapi.Error
+		ok := errors.As(err, &ae)
+		if ok && ae.Code == http.StatusForbidden {
+			mgr.Logger.Warn("Forbidden from getting migration job, retrying in case permissions are not yet propagated")
+			time.Sleep(20 * time.Second)
+			return getMigrationJobWithRetry(ctx, migrationName, gcpProject, mgr, retries-1)
+		}
+		return nil, fmt.Errorf("failed to get migration job: %w", err)
+	}
+
+	return migrationJob, nil
 }
 
 func Promote(ctx context.Context, source, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
