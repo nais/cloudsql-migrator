@@ -18,14 +18,9 @@ func CreateNetworkPolicy(ctx context.Context, cfg *config.Config, source *resolv
 		return nil
 	}
 
-	helperName, err := common_main.HelperName(cfg.ApplicationName)
-	if err != nil {
-		return err
-	}
-
 	netpol := &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      helperName,
+			Name:      fmt.Sprintf("migration-%s-%s", cfg.ApplicationName, target.Name),
 			Namespace: cfg.Namespace,
 			Labels: map[string]string{
 				"app":                      cfg.ApplicationName,
@@ -54,7 +49,7 @@ func CreateNetworkPolicy(ctx context.Context, cfg *config.Config, source *resolv
 		},
 	}
 
-	_, err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Create(ctx, netpol, metav1.CreateOptions{})
+	_, err := mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Create(ctx, netpol, metav1.CreateOptions{})
 	if err != nil {
 		if k8s_errors.IsAlreadyExists(err) {
 			_, err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Update(ctx, netpol, metav1.UpdateOptions{})
