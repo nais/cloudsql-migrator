@@ -1,19 +1,18 @@
 package promote
 
 import (
-	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
-	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
+	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
+	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"google.golang.org/api/datamigration/v1"
-	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
-	"net/http"
-	"time"
 )
 
 const MigrationJobRetries = 3
@@ -50,10 +49,8 @@ func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instan
 func getMigrationJobWithRetry(ctx context.Context, migrationName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager, retries int) (*datamigration.MigrationJob, error) {
 	migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(gcpProject.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
 	if err != nil {
-		var ae *googleapi.Error
-		ok := errors.As(err, &ae)
-		if ok && ae.Code == http.StatusForbidden {
-			mgr.Logger.Warn("Forbidden from getting migration job, retrying in case permissions are not yet propagated")
+		if retries > 0 {
+			mgr.Logger.Warn("Failed to get migration job, retrying in case permissions are not yet propagated")
 			time.Sleep(20 * time.Second)
 			return getMigrationJobWithRetry(ctx, migrationName, gcpProject, mgr, retries-1)
 		}
@@ -106,14 +103,14 @@ func waitForReplicationLagToReachZero(ctx context.Context, target *resolved.Inst
 	req := &monitoringpb.QueryTimeSeriesRequest{
 		Name: gcpProject.GcpParentURI(),
 		Query: "fetch cloudsql_database\n" +
-			"| metric\n" +
-			"    'cloudsql.googleapis.com/database/postgresql/external_sync/max_replica_byte_lag'\n" +
-			"| filter\n" +
-			"    resource.region == 'europe-north1' && \n" +
-			fmt.Sprintf("    resource.project_id == '%s' &&\n", gcpProject.Id) +
-			fmt.Sprintf("    resource.database_id == '%s:%s'\n", gcpProject.Id, target.Name) +
-			"| group_by [], mean(val())\n" +
-			"| within 5m\n",
+				"| metric\n" +
+				"    'cloudsql.googleapis.com/database/postgresql/external_sync/max_replica_byte_lag'\n" +
+				"| filter\n" +
+				"    resource.region == 'europe-north1' && \n" +
+				fmt.Sprintf("    resource.project_id == '%s' &&\n", gcpProject.Id) +
+				fmt.Sprintf("    resource.database_id == '%s:%s'\n", gcpProject.Id, target.Name) +
+				"| group_by [], mean(val())\n" +
+				"| within 5m\n",
 	}
 
 	for {
