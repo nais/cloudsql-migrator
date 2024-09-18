@@ -123,7 +123,7 @@ func waitForReplicationLagToReachZero(ctx context.Context, target *resolved.Inst
 			if !errors.Is(err, iterator.Done) {
 				return fmt.Errorf("failed to fetch time series data: %w", err)
 			}
-			mgr.Logger.Debug("no more data in iterator")
+			mgr.Logger.Info("no more data in iterator")
 		} else {
 			value := data.PointData[0].Values[0].GetInt64Value()
 			if value == 0 {

@@ -16,7 +16,7 @@ import (
 func CreateNetworkPolicy(ctx context.Context, cfg *config.Config, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
 	v := os.Getenv("KUBERNETES_SERVICE_HOST")
 	if v == "" {
-		mgr.Logger.Debug("not running in kubernetes, skipping network policy creation")
+		mgr.Logger.Info("not running in kubernetes, skipping network policy creation")
 		return nil
 	}
 

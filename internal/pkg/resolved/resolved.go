@@ -145,7 +145,7 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 
 	var sqlInstance *v1beta1.SQLInstance
 	for {
-		mgr.Logger.Debug("waiting for sql instance to be ready", "instance", instance.Name)
+		mgr.Logger.Info("waiting for sql instance to be ready", "instance", instance.Name)
 		sqlInstance, err = mgr.SqlInstanceClient.Get(ctx, instance.Name)
 		if err != nil {
 			if errors.IsNotFound(err) {

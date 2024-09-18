@@ -3,6 +3,8 @@ package application
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/database"
@@ -13,7 +15,6 @@ import (
 	autoscaling_v1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 const UpdateRetries = 3
@@ -84,12 +85,12 @@ func updateApplicationInstanceWithRetries(ctx context.Context, cfg *config.Confi
 }
 
 func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
-	mgr.Logger.Info("updating application user")
+	mgr.Logger.Info("updating application user", "user", target.AppUsername)
 
 	getCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 	for {
-		mgr.Logger.Debug("waiting for user to be up to date", "user", target.AppUsername)
+		mgr.Logger.Info("waiting for user to be up to date", "user", target.AppUsername)
 		sqlUser, err := mgr.SqlUserClient.Get(getCtx, target.AppUsername)
 		if err != nil {
 			if errors.IsNotFound(err) {
