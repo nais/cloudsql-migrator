@@ -15,7 +15,7 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-const MigrationJobRetries = 3
+const MigrationJobRetries = 6
 
 func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	migrationName, err := resolved.MigrationName(source.Name, target.Name)
