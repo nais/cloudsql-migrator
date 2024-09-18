@@ -144,6 +144,8 @@ func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
+	mgr.Logger.Info("waiting for relevant cnrm resources to go away", "name", name)
+
 	type resource struct {
 		kind   string
 		getter func() error
