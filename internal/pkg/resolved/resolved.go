@@ -154,7 +154,7 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 			}
 		}
 
-		if sqlInstance.Status.Conditions[0].Reason != "UpToDate" {
+		if len(sqlInstance.Status.Conditions) == 0 || sqlInstance.Status.Conditions[0].Reason != "UpToDate" {
 			time.Sleep(3 * time.Second)
 			continue
 		}
