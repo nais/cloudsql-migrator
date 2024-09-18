@@ -18,6 +18,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/googleapi"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -139,21 +140,55 @@ func PrepareSourceInstance(ctx context.Context, cfg *config.Config, source *reso
 	return nil
 }
 
-func WaitForInstanceToGoAway(ctx context.Context, name string, mgr *common_main.Manager) error {
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_main.Manager) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	for {
-		instance, err := mgr.SqlInstanceClient.Get(ctx, name)
-		if err != nil {
-			if k8s_errors.IsNotFound(err) {
-				return nil
-			}
-			return fmt.Errorf("failed to get instance: %w", err)
-		}
-		time.Sleep(3 * time.Second)
-		mgr.Logger.Info("waiting for instance to go away", "instance_waited_on", instance.Name)
+	type resource struct {
+		kind   string
+		getter func() error
 	}
+	resources := []resource{
+		{
+			"SQLInstance",
+			func() error {
+				_, err := mgr.SqlInstanceClient.Get(ctx, name)
+				return err
+			},
+		},
+		{
+			"SQLUser",
+			func() error {
+				_, err := mgr.SqlUserClient.Get(ctx, name)
+				return err
+			},
+		},
+	}
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	for _, r := range resources {
+		g.Go(func() error {
+			for {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+
+				err := r.getter()
+				if err != nil {
+					if k8s_errors.IsNotFound(err) {
+						return nil
+					}
+
+					mgr.Logger.Info("waiting for resource to go away", "resource", name, "kind", r.kind, "error", err.Error())
+					time.Sleep(3 * time.Second)
+					continue
+				}
+			}
+		})
+	}
+
+	return g.Wait()
 }
 
 func prepareSourceInstanceWithRetries(ctx context.Context, cfg *config.Config, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
