@@ -3,10 +3,11 @@ package migration
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
-	"time"
 
 	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -89,6 +90,7 @@ func demoteTargetInstance(ctx context.Context, migrationJob *clouddmspb.Migratio
 }
 
 func createMigrationJob(ctx context.Context, migrationName string, cfg *config.Config, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*clouddmspb.MigrationJob, error) {
+	mgr.Logger.Info("looking for existing migration job", "name", migrationName)
 	migrationJob, err := mgr.DBMigrationClient.GetMigrationJob(ctx, &clouddmspb.GetMigrationJobRequest{
 		Name: gcpProject.GcpComponentURI("migrationJobs", migrationName),
 	})
@@ -125,6 +127,7 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *config.C
 		return nil, fmt.Errorf("unable to create new migration job: %w", err)
 	}
 
+	mgr.Logger.Info("waiting for migration job creation", "name", migrationName)
 	migrationJob, err = createOperation.Wait(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed waiting for migration job creation: %w", err)

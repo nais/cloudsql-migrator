@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/nais/cloudsql-migrator/internal/pkg/application"
 	"github.com/nais/cloudsql-migrator/internal/pkg/backup"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -12,8 +15,6 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/promote"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"github.com/sethvargo/go-envconfig"
-	"os"
-	"time"
 )
 
 func main() {
@@ -42,6 +43,7 @@ func main() {
 		os.Exit(3)
 	}
 
+	mgr.Logger.Info("getting application", "name", cfg.ApplicationName)
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		mgr.Logger.Error("failed to get application", "error", err)
@@ -66,6 +68,7 @@ func main() {
 		os.Exit(7)
 	}
 
+	mgr.Logger.Info("getting helper application", "name", helperName)
 	helperApp, err := mgr.AppClient.Get(ctx, helperName)
 	if err != nil {
 		mgr.Logger.Error("failed to get helper application", "error", err)

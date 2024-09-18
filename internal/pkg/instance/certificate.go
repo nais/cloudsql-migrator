@@ -3,6 +3,9 @@ package instance
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -10,8 +13,6 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"time"
 )
 
 type CertPaths struct {
@@ -117,6 +118,7 @@ func DeleteSslCertByCommonName(ctx context.Context, instanceName, commonName str
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
+	mgr.Logger.Info("listing ssl certs", "instance", instanceName)
 	listResponse, err := sslCertsService.List(gcpProject.Id, instanceName).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to list ssl certs: %w", err)

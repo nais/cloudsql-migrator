@@ -4,6 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/user"
+	"strings"
+	"time"
+
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	_ "github.com/lib/pq"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -12,15 +19,9 @@ import (
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"google.golang.org/api/googleapi"
-	"io"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	"net/http"
-	"os"
-	"os/user"
-	"strings"
-	"time"
 )
 
 const (
@@ -30,6 +31,7 @@ const (
 )
 
 func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.Instance, gcpProject *resolved.GcpProject, databaseName string, mgr *common_main.Manager) (*resolved.Instance, error) {
+	mgr.Logger.Info("getting source application", "name", cfg.ApplicationName)
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		return nil, err
@@ -42,6 +44,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		return nil, err
 	}
 
+	mgr.Logger.Info("get helper application", "name", helperName)
 	dummyApp, err := mgr.AppClient.Get(ctx, helperName)
 	if k8s_errors.IsNotFound(err) {
 		dummyApp = &nais_io_v1alpha1.Application{
@@ -71,6 +74,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 			},
 		}
 
+		mgr.Logger.Info("creating helper application", "name", helperName)
 		app, err = mgr.AppClient.Create(ctx, dummyApp)
 	}
 	if err != nil {
@@ -213,14 +217,14 @@ func PrepareTargetInstance(ctx context.Context, cfg *config.Config, target *reso
 }
 
 func prepareTargetInstanceWithRetries(ctx context.Context, cfg *config.Config, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
+	mgr.Logger.Info("preparing target instance for migration")
+
 	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
 	if err != nil {
 		if !k8s_errors.IsNotFound(err) {
 			return err
 		}
 	}
-
-	mgr.Logger.Info("preparing target instance for migration")
 
 	targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled = ptr.To(false)
 
@@ -232,6 +236,7 @@ func prepareTargetInstanceWithRetries(ctx context.Context, cfg *config.Config, t
 
 	targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(targetSqlInstance, authNetwork)
 
+	mgr.Logger.Info("updating target instance", "name", target.Name)
 	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
 	if err != nil {
 		if k8s_errors.IsConflict(err) && retries > 0 {
@@ -291,7 +296,7 @@ func updateTargetInstanceAfterPromotionWithRetries(ctx context.Context, target *
 func DeleteInstance(ctx context.Context, instanceName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	instancesService := mgr.SqlAdminService.Instances
 
-	mgr.Logger.Debug("checking for existence before deletion")
+	mgr.Logger.Info("checking for instance existence before deletion", "name", instanceName)
 	_, err := instancesService.Get(gcpProject.Id, instanceName).Context(ctx).Do()
 	if err != nil {
 		var ae *googleapi.Error
@@ -315,6 +320,7 @@ func CleanupAuthNetworks(ctx context.Context, target *resolved.Instance, mgr *co
 }
 
 func cleanupAuthNetworksWithRetries(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
+	mgr.Logger.Info("deleting authorized networks")
 	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get target instance: %w", err)

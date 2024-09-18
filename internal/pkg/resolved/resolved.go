@@ -3,6 +3,9 @@ package resolved
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
@@ -10,8 +13,6 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
-	"time"
 )
 
 // Resolved is configuration that is resolved by looking up in the cluster
@@ -44,6 +45,7 @@ type GcpProject struct {
 }
 
 func ResolveGcpProject(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) (*GcpProject, error) {
+	mgr.Logger.Info("resolving google project id", "namespace", cfg.Namespace)
 	ns, err := mgr.K8sClient.CoreV1().Namespaces().Get(ctx, cfg.Namespace, meta_v1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -114,6 +116,8 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 	instance := &Instance{
 		Name: name,
 	}
+
+	mgr.Logger.Info("resolving sql instance", "name", name)
 
 	var secret *v1.Secret
 	for {

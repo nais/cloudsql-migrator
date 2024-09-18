@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
@@ -10,8 +13,6 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"github.com/sethvargo/go-envconfig"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"time"
 )
 
 func main() {
@@ -83,7 +84,6 @@ func main() {
 		os.Exit(9)
 	}
 
-	mgr.Logger.Info("deleting authorized networks")
 	err = instance.CleanupAuthNetworks(ctx, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to cleanup authorized networks", "error", err)

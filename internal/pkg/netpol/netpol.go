@@ -3,18 +3,20 @@ package netpol
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	v1 "k8s.io/api/networking/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
 )
 
 func CreateNetworkPolicy(ctx context.Context, cfg *config.Config, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
 	v := os.Getenv("KUBERNETES_SERVICE_HOST")
 	if v == "" {
+		mgr.Logger.Debug("not running in kubernetes, skipping network policy creation")
 		return nil
 	}
 
@@ -49,9 +51,11 @@ func CreateNetworkPolicy(ctx context.Context, cfg *config.Config, source *resolv
 		},
 	}
 
+	mgr.Logger.Info("creating network policy", "name", netpol.Name)
 	_, err := mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Create(ctx, netpol, metav1.CreateOptions{})
 	if err != nil {
 		if k8s_errors.IsAlreadyExists(err) {
+			mgr.Logger.Info("network policy already exists, updating", "name", netpol.Name)
 			_, err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Update(ctx, netpol, metav1.UpdateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to update network policy: %w", err)

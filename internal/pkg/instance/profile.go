@@ -1,10 +1,11 @@
 package instance
 
 import (
-	clouddms "cloud.google.com/go/clouddms/apiv1"
-	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
 	"context"
 	"fmt"
+
+	clouddms "cloud.google.com/go/clouddms/apiv1"
+	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
@@ -91,6 +92,7 @@ func deleteOldConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb
 	}
 
 	for _, deleteOperation := range deleteOperations {
+		mgr.Logger.Info("waiting for connection profile deletion...", "name", deleteOperation.Name())
 		err := deleteOperation.Wait(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to wait for connection profile deletion: %w", err)

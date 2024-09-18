@@ -103,14 +103,14 @@ func waitForReplicationLagToReachZero(ctx context.Context, target *resolved.Inst
 	req := &monitoringpb.QueryTimeSeriesRequest{
 		Name: gcpProject.GcpParentURI(),
 		Query: "fetch cloudsql_database\n" +
-				"| metric\n" +
-				"    'cloudsql.googleapis.com/database/postgresql/external_sync/max_replica_byte_lag'\n" +
-				"| filter\n" +
-				"    resource.region == 'europe-north1' && \n" +
-				fmt.Sprintf("    resource.project_id == '%s' &&\n", gcpProject.Id) +
-				fmt.Sprintf("    resource.database_id == '%s:%s'\n", gcpProject.Id, target.Name) +
-				"| group_by [], mean(val())\n" +
-				"| within 5m\n",
+			"| metric\n" +
+			"    'cloudsql.googleapis.com/database/postgresql/external_sync/max_replica_byte_lag'\n" +
+			"| filter\n" +
+			"    resource.region == 'europe-north1' && \n" +
+			fmt.Sprintf("    resource.project_id == '%s' &&\n", gcpProject.Id) +
+			fmt.Sprintf("    resource.database_id == '%s:%s'\n", gcpProject.Id, target.Name) +
+			"| group_by [], mean(val())\n" +
+			"| within 5m\n",
 	}
 
 	for {
