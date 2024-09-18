@@ -155,6 +155,10 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 		}
 
 		if len(sqlInstance.Status.Conditions) == 0 || sqlInstance.Status.Conditions[0].Reason != "UpToDate" {
+			if sqlInstance.Status.Conditions[0].Reason == "UpdateFailed" {
+				return nil, fmt.Errorf("sql instance update has failed: %s", sqlInstance.Status.Conditions[0].Message)
+			}
+
 			time.Sleep(3 * time.Second)
 			continue
 		}
