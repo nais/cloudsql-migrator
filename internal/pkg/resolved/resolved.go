@@ -154,15 +154,20 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 			}
 		}
 
-		if len(sqlInstance.Status.Conditions) == 0 || sqlInstance.Status.Conditions[0].Reason != "UpToDate" {
-			if sqlInstance.Status.Conditions[0].Reason == "UpdateFailed" {
-				return nil, fmt.Errorf("sql instance update has failed: %s", sqlInstance.Status.Conditions[0].Message)
+		conditionsNotEmpty := len(sqlInstance.Status.Conditions) > 0
+		if conditionsNotEmpty {
+			condition := sqlInstance.Status.Conditions[0]
+
+			if condition.Reason == "UpdateFailed" {
+				return nil, fmt.Errorf("sql instance update has failed: %s", condition.Message)
 			}
 
-			time.Sleep(3 * time.Second)
-			continue
+			if condition.Reason == "UpToDate" {
+				break
+			}
 		}
-		break
+
+		time.Sleep(3 * time.Second)
 	}
 
 	if sqlInstance.Status.PublicIpAddress == nil {
