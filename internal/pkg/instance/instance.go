@@ -144,7 +144,8 @@ func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	mgr.Logger.Info("waiting for relevant cnrm resources to go away", "name", name)
+	logger := mgr.Logger.With("instance_name", name)
+	logger.Info("waiting for relevant CNRM resources to go away...")
 
 	type resource struct {
 		kind   string
@@ -181,11 +182,12 @@ func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_
 					if k8s_errors.IsNotFound(err) {
 						return nil
 					}
-
-					mgr.Logger.Info("waiting for resource to go away", "resource", name, "kind", r.kind, "error", err.Error())
-					time.Sleep(3 * time.Second)
-					continue
+					logger.Warn("failed to get resource, retrying...", "kind", r.kind, "error", err.Error())
+				} else {
+					logger.Info("waiting for resource to go away...", "kind", r.kind)
 				}
+
+				time.Sleep(3 * time.Second)
 			}
 		})
 	}
