@@ -50,7 +50,7 @@ func getMigrationJobWithRetry(ctx context.Context, migrationName string, gcpProj
 	migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(gcpProject.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
 	if err != nil {
 		if retries > 0 {
-			mgr.Logger.Warn("failed to get migration job, retrying in case permissions are not yet propagated...", "error", err.Error(), "attempt", MigrationJobRetries-retries+1)
+			mgr.Logger.Warn("failed to get migration job, retrying in case permissions are not yet propagated...", "remaining_retries", retries)
 			time.Sleep(20 * time.Second)
 			return getMigrationJobWithRetry(ctx, migrationName, gcpProject, mgr, retries-1)
 		}
