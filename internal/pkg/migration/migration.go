@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const MigrationJobRetries = 6
+
 func SetupMigration(ctx context.Context, cfg *config.Config, gcpProject *resolved.GcpProject, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
 	migrationName, err := resolved.MigrationName(source.Name, target.Name)
 	if err != nil {
@@ -156,4 +158,18 @@ func startMigrationJob(ctx context.Context, migrationJob *clouddmspb.MigrationJo
 	logger.Info("migration job started")
 
 	return nil
+}
+
+func GetMigrationJobWithRetry(ctx context.Context, migrationName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager, retries int) (*datamigration.MigrationJob, error) {
+	migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(gcpProject.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
+	if err != nil {
+		if retries > 0 {
+			mgr.Logger.Warn("failed to get migration job, retrying in case permissions are not yet propagated...", "remaining_retries", retries)
+			time.Sleep(20 * time.Second)
+			return GetMigrationJobWithRetry(ctx, migrationName, gcpProject, mgr, retries-1)
+		}
+		return nil, fmt.Errorf("failed to get migration job: %w", err)
+	}
+
+	return migrationJob, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/nais/cloudsql-migrator/internal/pkg/migration"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
@@ -15,8 +16,6 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-const MigrationJobRetries = 6
-
 func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	migrationName, err := resolved.MigrationName(source.Name, target.Name)
 	if err != nil {
@@ -25,7 +24,7 @@ func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instan
 
 	mgr.Logger.Info("checking if migration job is ready for promotion", "migrationName", migrationName)
 
-	migrationJob, err := getMigrationJobWithRetry(ctx, migrationName, gcpProject, mgr, MigrationJobRetries)
+	migrationJob, err := migration.GetMigrationJobWithRetry(ctx, migrationName, gcpProject, mgr, migration.MigrationJobRetries)
 	if err != nil {
 		return err
 	}
@@ -44,20 +43,6 @@ func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instan
 	}
 
 	return nil
-}
-
-func getMigrationJobWithRetry(ctx context.Context, migrationName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager, retries int) (*datamigration.MigrationJob, error) {
-	migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(gcpProject.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
-	if err != nil {
-		if retries > 0 {
-			mgr.Logger.Warn("failed to get migration job, retrying in case permissions are not yet propagated...", "remaining_retries", retries)
-			time.Sleep(20 * time.Second)
-			return getMigrationJobWithRetry(ctx, migrationName, gcpProject, mgr, retries-1)
-		}
-		return nil, fmt.Errorf("failed to get migration job: %w", err)
-	}
-
-	return migrationJob, nil
 }
 
 func Promote(ctx context.Context, source, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
