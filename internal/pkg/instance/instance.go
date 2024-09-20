@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/sethvargo/go-retry"
 	"io"
 	"net/http"
 	"os"
@@ -113,10 +114,45 @@ func DefineInstance(instanceSettings *config.InstanceSettings, app *nais_io_v1al
 	return instance
 }
 
-func PrepareSourceInstance(ctx context.Context, cfg *config.Config, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
+func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
 	mgr.Logger.Info("preparing source instance for migration")
 
-	err := prepareSourceInstanceWithRetries(ctx, cfg, source, target, mgr, updateRetries)
+	b := retry.NewConstant(1 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
+
+	err := retry.Do(ctx, b, func(ctx context.Context) error {
+		sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
+		if err != nil {
+			return retry.RetryableError(err)
+		}
+
+		authNetwork := v1beta1.InstanceAuthorizedNetworks{
+			Name:  &target.Name,
+			Value: fmt.Sprintf("%s/32", target.OutgoingIp),
+		}
+		sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
+
+		authNetwork, err = createMigratorAuthNetwork()
+		if err != nil {
+			return err
+		}
+		sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
+
+		setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
+		setFlag(sourceSqlInstance, "cloudsql.logical_decoding")
+
+		_, err = mgr.SqlInstanceClient.Update(ctx, sourceSqlInstance)
+		if err != nil {
+			if k8s_errors.IsConflict(err) {
+				mgr.Logger.Warn("retrying update of source instance")
+				return retry.RetryableError(err)
+			}
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		return err
 	}
@@ -141,9 +177,6 @@ func PrepareSourceInstance(ctx context.Context, cfg *config.Config, source *reso
 }
 
 func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_main.Manager) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-
 	logger := mgr.Logger.With("instance_name", name)
 	logger.Info("waiting for relevant CNRM resources to go away...")
 
@@ -172,59 +205,29 @@ func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_
 
 	for _, r := range resources {
 		g.Go(func() error {
-			for {
-				if ctx.Err() != nil {
-					return ctx.Err()
-				}
+			b := retry.NewConstant(5 * time.Second)
+			b = retry.WithMaxDuration(5*time.Minute, b)
 
+			err := retry.Do(ctx, b, func(ctx context.Context) error {
 				err := r.getter()
-				if err != nil {
-					if k8s_errors.IsNotFound(err) {
-						return nil
-					}
-					logger.Warn("failed to get resource, retrying...", "kind", r.kind, "error", err.Error())
-				} else {
+				if err == nil {
 					logger.Info("waiting for resource to go away...", "kind", r.kind)
+					return retry.RetryableError(errors.New("resource still exists"))
 				}
-
-				time.Sleep(3 * time.Second)
+				if k8s_errors.IsNotFound(err) {
+					return nil
+				}
+				logger.Warn("failed to get resource, retrying...", "kind", r.kind, "error", err.Error())
+				return retry.RetryableError(err)
+			})
+			if err != nil {
+				logger.Error("resource refuses to go away", "kind", r.kind, "error", err.Error())
 			}
+			return err
 		})
 	}
 
 	return g.Wait()
-}
-
-func prepareSourceInstanceWithRetries(ctx context.Context, cfg *config.Config, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
-	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
-	if err != nil {
-		return err
-	}
-
-	authNetwork := v1beta1.InstanceAuthorizedNetworks{
-		Name:  &target.Name,
-		Value: fmt.Sprintf("%s/32", target.OutgoingIp),
-	}
-	sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
-
-	authNetwork, err = createMigratorAuthNetwork()
-	if err != nil {
-		return err
-	}
-	sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
-
-	setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
-	setFlag(sourceSqlInstance, "cloudsql.logical_decoding")
-
-	_, err = mgr.SqlInstanceClient.Update(ctx, sourceSqlInstance)
-	if err != nil {
-		if k8s_errors.IsConflict(err) && retries > 0 {
-			mgr.Logger.Info("retrying update of source instance", "remaining_retries", retries)
-			return prepareSourceInstanceWithRetries(ctx, cfg, source, target, mgr, retries-1)
-		}
-		return err
-	}
-	return nil
 }
 
 func PrepareTargetInstance(ctx context.Context, cfg *config.Config, target *resolved.Instance, mgr *common_main.Manager) error {
