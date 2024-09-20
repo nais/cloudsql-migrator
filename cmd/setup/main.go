@@ -104,7 +104,7 @@ func main() {
 		os.Exit(13)
 	}
 
-	err = instance.PrepareTargetInstance(ctx, cfg, target, mgr)
+	err = instance.PrepareTargetInstance(ctx, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare target instance", "error", err)
 		os.Exit(14)

@@ -232,12 +232,42 @@ func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_
 	return g.Wait()
 }
 
-func PrepareTargetInstance(ctx context.Context, cfg *config.Config, target *resolved.Instance, mgr *common_main.Manager) error {
-	getInstanceCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
-	defer cancel()
+func PrepareTargetInstance(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager) error {
+	mgr.Logger.Info("preparing target instance for migration")
 
-	err := prepareTargetInstanceWithRetries(getInstanceCtx, cfg, target, mgr, updateRetries)
+	b := retry.NewConstant(1 * time.Second)
+	b = retry.WithMaxDuration(15*time.Minute, b)
+
+	err := retry.Do(ctx, b, func(ctx context.Context) error {
+		targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
+		if err != nil {
+			// Target is assumed to exist, so any error here is fatal
+			return err
+		}
+
+		targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled = ptr.To(false)
+
+		var authNetwork v1beta1.InstanceAuthorizedNetworks
+		authNetwork, err = createMigratorAuthNetwork()
+		if err != nil {
+			return err
+		}
+
+		targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(targetSqlInstance, authNetwork)
+
+		mgr.Logger.Info("updating target instance", "name", target.Name)
+		_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
+		if err != nil {
+			if k8s_errors.IsConflict(err) {
+				mgr.Logger.Warn("retrying update of target instance", "error", err)
+				return retry.RetryableError(err)
+			}
+			return err
+		}
+		return nil
+	})
 	if err != nil {
+		mgr.Logger.Error("failed to prepare target instance", "error", err)
 		return err
 	}
 
@@ -257,38 +287,6 @@ func PrepareTargetInstance(ctx context.Context, cfg *config.Config, target *reso
 	}
 
 	mgr.Logger.Info("target instance prepared for migration")
-	return nil
-}
-
-func prepareTargetInstanceWithRetries(ctx context.Context, cfg *config.Config, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
-	mgr.Logger.Info("preparing target instance for migration")
-
-	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
-	if err != nil {
-		if !k8s_errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled = ptr.To(false)
-
-	var authNetwork v1beta1.InstanceAuthorizedNetworks
-	authNetwork, err = createMigratorAuthNetwork()
-	if err != nil {
-		return err
-	}
-
-	targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(targetSqlInstance, authNetwork)
-
-	mgr.Logger.Info("updating target instance", "name", target.Name)
-	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
-	if err != nil {
-		if k8s_errors.IsConflict(err) && retries > 0 {
-			mgr.Logger.Info("retrying update of target instance", "remaining_retries", retries)
-			return prepareTargetInstanceWithRetries(ctx, cfg, target, mgr, retries-1)
-		}
-		return err
-	}
 	return nil
 }
 
