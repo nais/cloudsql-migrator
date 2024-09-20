@@ -3,6 +3,8 @@ package instance
 import (
 	"context"
 	"fmt"
+	"github.com/sethvargo/go-retry"
+	"time"
 
 	clouddms "cloud.google.com/go/clouddms/apiv1"
 	"cloud.google.com/go/clouddms/apiv1/clouddmspb"
@@ -103,16 +105,29 @@ func deleteOldConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb
 
 func deleteConnectionProfile(ctx context.Context, profileName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*clouddms.DeleteConnectionProfileOperation, error) {
 	mgr.Logger.Info("deleting connection profile", "name", profileName)
-	deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
-		Name: gcpProject.GcpComponentURI("connectionProfiles", profileName),
-	})
-	if err != nil {
-		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
-			return nil, fmt.Errorf("unable to delete connection profile: %w", err)
+
+	b := retry.NewConstant(1 * time.Second)
+	b = retry.WithMaxDuration(2*time.Minute, b)
+
+	deleteOperation, err := retry.DoValue(ctx, b, func(ctx context.Context) (*clouddms.DeleteConnectionProfileOperation, error) {
+		deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
+			Name: gcpProject.GcpComponentURI("connectionProfiles", profileName),
+		})
+		if err != nil {
+			if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+				return nil, nil
+			}
+			return nil, retry.RetryableError(fmt.Errorf("unable to delete connection profile, retrying: %w", err))
 		}
-		return nil, nil
+		return deleteOperation, nil
+	})
+
+	if err != nil {
+		mgr.Logger.Error("failed to delete connection profile", "error", err)
+	} else {
+		mgr.Logger.Info("connection profile deleted", "name", profileName)
 	}
-	return deleteOperation, nil
+	return deleteOperation, err
 }
 
 func getDmsConnectionProfiles(cfg *config.Config, source *resolved.Instance, target *resolved.Instance) map[string]*clouddmspb.ConnectionProfile {
