@@ -18,8 +18,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const UpdateRetries = 3
-
 func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, replicas int32) error {
 	mgr.Logger.Info("scaling application", "name", cfg.ApplicationName, "replicas", replicas)
 	scaleApplyConfiguration := autoscaling_v1.Scale{

@@ -28,7 +28,6 @@ import (
 
 const (
 	dummyAppImage              = "europe-north1-docker.pkg.dev/nais-io/nais/images/kafka-debug:latest"
-	updateRetries              = 3
 	migrationAuthNetworkPrefix = "migrator:"
 )
 
@@ -291,8 +290,32 @@ func PrepareTargetInstance(ctx context.Context, target *resolved.Instance, mgr *
 }
 
 func UpdateTargetInstanceAfterPromotion(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager) error {
-	err := updateTargetInstanceAfterPromotionWithRetries(ctx, target, mgr, updateRetries)
+	mgr.Logger.Info("updating target instance after promotion")
+
+	b := retry.NewConstant(1 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
+
+	err := retry.Do(ctx, b, func(ctx context.Context) error {
+		targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
+		if err != nil {
+			return fmt.Errorf("failed to get target instance: %w", err)
+		}
+
+		targetSqlInstance.Spec.InstanceType = ptr.To("CLOUD_SQL_INSTANCE")
+		targetSqlInstance.Spec.MasterInstanceRef = nil
+
+		_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
+		if err != nil {
+			if k8s_errors.IsConflict(err) {
+				mgr.Logger.Warn("retrying update of target instance", "error", err)
+				return retry.RetryableError(err)
+			}
+			return err
+		}
+		return nil
+	})
 	if err != nil {
+		mgr.Logger.Error("failed to update target instance after promotion", "error", err)
 		return err
 	}
 
@@ -312,26 +335,6 @@ func UpdateTargetInstanceAfterPromotion(ctx context.Context, target *resolved.In
 	}
 
 	mgr.Logger.Info("target instance updated after promotion")
-	return nil
-}
-
-func updateTargetInstanceAfterPromotionWithRetries(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
-	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
-	if err != nil {
-		return fmt.Errorf("failed to get target instance: %w", err)
-	}
-
-	targetSqlInstance.Spec.InstanceType = ptr.To("CLOUD_SQL_INSTANCE")
-	targetSqlInstance.Spec.MasterInstanceRef = nil
-
-	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
-	if err != nil {
-		if k8s_errors.IsConflict(err) && retries > 0 {
-			mgr.Logger.Info("retrying update of target instance", "remaining_retries", retries)
-			return updateTargetInstanceAfterPromotionWithRetries(ctx, target, mgr, retries-1)
-		}
-		return err
-	}
 	return nil
 }
 
