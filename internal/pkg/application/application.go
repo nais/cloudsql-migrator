@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"github.com/sethvargo/go-retry"
 	"time"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -42,7 +43,31 @@ func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.
 func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instanceSettings *config.InstanceSettings, mgr *common_main.Manager) (*nais_io_v1alpha1.Application, error) {
 	mgr.Logger.Info("updating application to use new instance", "name", cfg.ApplicationName)
 
-	app, err := updateApplicationInstanceWithRetries(ctx, cfg, instanceSettings, mgr, UpdateRetries)
+	b := retry.NewConstant(1 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
+
+	app, err := retry.DoValue(ctx, b, func(ctx context.Context) (*nais_io_v1alpha1.Application, error) {
+		app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
+		if err != nil {
+			return nil, err
+		}
+
+		targetInstance := instance.DefineInstance(instanceSettings, app)
+		app.Spec.GCP.SqlInstances = []nais_io_v1.CloudSqlInstance{
+			*targetInstance,
+		}
+
+		app, err = mgr.AppClient.Update(ctx, app)
+		if err != nil {
+			if errors.IsConflict(err) {
+				mgr.Logger.Info("retrying update of application")
+				return nil, retry.RetryableError(err)
+			}
+			return nil, err
+		}
+
+		return app, nil
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -59,29 +84,6 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 	}
 
 	return app, err
-}
-
-func updateApplicationInstanceWithRetries(ctx context.Context, cfg *config.Config, instanceSettings *config.InstanceSettings, mgr *common_main.Manager, retries int) (*nais_io_v1alpha1.Application, error) {
-	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
-	if err != nil {
-		return nil, err
-	}
-
-	targetInstance := instance.DefineInstance(instanceSettings, app)
-	app.Spec.GCP.SqlInstances = []nais_io_v1.CloudSqlInstance{
-		*targetInstance,
-	}
-
-	app, err = mgr.AppClient.Update(ctx, app)
-	if err != nil {
-		if errors.IsConflict(err) && retries > 0 {
-			mgr.Logger.Info("retrying update of application", "remaining_retries", retries)
-			return updateApplicationInstanceWithRetries(ctx, cfg, instanceSettings, mgr, retries-1)
-		}
-		return nil, err
-	}
-
-	return app, nil
 }
 
 func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
