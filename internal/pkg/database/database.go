@@ -9,6 +9,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
+	"github.com/sethvargo/go-retry"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/sqladmin/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -109,32 +110,32 @@ func SetDatabasePassword(ctx context.Context, instance string, userName string, 
 
 	usersService := mgr.SqlAdminService.Users
 
-	updateCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
+	b := retry.NewConstant(3 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
 
-	var err error
-	var op *sqladmin.Operation
-
-	for {
-		var user *sqladmin.User
-		user, err = getSqlUser(updateCtx, instance, userName, gcpProject, mgr)
+	op, err := retry.DoValue(ctx, b, func(ctx context.Context) (*sqladmin.Operation, error) {
+		user, err := getSqlUser(ctx, instance, userName, gcpProject, mgr)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		user.Password = password
 
-		op, err = usersService.Update(gcpProject.Id, instance, user).Name(user.Name).Host(user.Host).Context(updateCtx).Do()
+		op, err := usersService.Update(gcpProject.Id, instance, user).Name(user.Name).Host(user.Host).Context(ctx).Do()
 		if err != nil {
 			var ae *googleapi.Error
 			if errors.As(err, &ae) && ae.Code == http.StatusConflict {
-				mgr.Logger.Info("user not found, retrying", "user", user.Name)
-				time.Sleep(3 * time.Second)
-				continue
+				mgr.Logger.Warn("user not found, retrying", "user", user.Name)
+				return nil, retry.RetryableError(err)
 			}
-			return fmt.Errorf("failed to update Cloud SQL user password: %w", err)
+			return nil, fmt.Errorf("failed to update Cloud SQL user password: %w", err)
 		}
-		break
+
+		return op, nil
+	})
+	if err != nil {
+		mgr.Logger.Error("failed to update Cloud SQL user password", "user", userName, "error", err)
+		return err
 	}
 
 	operationsService := mgr.SqlAdminService.Operations
@@ -154,24 +155,25 @@ func SetDatabasePassword(ctx context.Context, instance string, userName string, 
 func getSqlUser(ctx context.Context, instance string, userName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*sqladmin.User, error) {
 	usersService := mgr.SqlAdminService.Users
 
-	retries := 5
-	for {
+	b := retry.NewConstant(3 * time.Second)
+	b = retry.WithMaxDuration(2*time.Minute, b)
+
+	user, err := retry.DoValue(ctx, b, func(ctx context.Context) (*sqladmin.User, error) {
 		user, err := usersService.Get(gcpProject.Id, instance, userName).Context(ctx).Do()
 		if err != nil {
 			var ae *googleapi.Error
 			if errors.As(err, &ae) && ae.Code == http.StatusNotFound {
-				retries -= 1
-				if retries > 0 {
-					mgr.Logger.Info("user not found, retrying", "remaining_retries", retries)
-					time.Sleep(3 * time.Second)
-					continue
-				}
-				return nil, fmt.Errorf("failed to get Cloud SQL user, ran out of retries: %w", err)
+				mgr.Logger.Warn("user not found, retrying")
+				return nil, retry.RetryableError(err)
 			}
 			return nil, err
 		}
 		return user, nil
+	})
+	if err != nil {
+		mgr.Logger.Error("failed to get Cloud SQL user", "user", userName, "error", err)
 	}
+	return user, err
 }
 
 func installExtension(ctx context.Context, mgr *common_main.Manager, source *resolved.Instance, databaseName string, certPaths *instance.CertPaths) error {
