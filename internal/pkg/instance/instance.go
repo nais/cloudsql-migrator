@@ -123,6 +123,7 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, targe
 	err := retry.Do(ctx, b, func(ctx context.Context) error {
 		sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
 		if err != nil {
+			mgr.Logger.Warn("failed to get source instance, retrying", "error", err)
 			return retry.RetryableError(err)
 		}
 
@@ -154,6 +155,7 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, targe
 	})
 
 	if err != nil {
+		mgr.Logger.Error("failed to prepare source instance", "error", err)
 		return err
 	}
 
@@ -358,27 +360,33 @@ func DeleteInstance(ctx context.Context, instanceName string, gcpProject *resolv
 }
 
 func CleanupAuthNetworks(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager) error {
-	return cleanupAuthNetworksWithRetries(ctx, target, mgr, updateRetries)
-}
-
-func cleanupAuthNetworksWithRetries(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager, retries int) error {
 	mgr.Logger.Info("deleting authorized networks")
-	targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
-	if err != nil {
-		return fmt.Errorf("failed to get target instance: %w", err)
-	}
 
-	targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = removeMigrationAuthNetwork(targetSqlInstance)
+	b := retry.NewConstant(1 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
 
-	_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
-	if err != nil {
-		if k8s_errors.IsConflict(err) && retries > 0 {
-			mgr.Logger.Info("retrying update of target instance", "remaining_retries", retries)
-			return cleanupAuthNetworksWithRetries(ctx, target, mgr, retries-1)
+	err := retry.Do(ctx, b, func(ctx context.Context) error {
+		targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
+		if err != nil {
+			return fmt.Errorf("failed to get target instance: %w", err)
 		}
-		return err
+
+		targetSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = removeMigrationAuthNetwork(targetSqlInstance)
+
+		_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
+		if err != nil {
+			if k8s_errors.IsConflict(err) {
+				mgr.Logger.Warn("retrying update of target instance", "error", err)
+				return retry.RetryableError(err)
+			}
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		mgr.Logger.Error("failed to cleanup authorized networks", "error", err)
 	}
-	return nil
+	return err
 }
 
 func createMigratorAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) {
