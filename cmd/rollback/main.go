@@ -118,16 +118,12 @@ func main() {
 		os.Exit(15)
 	}
 
-	helperName, err := common_main.HelperName(cfg.ApplicationName)
-	if err != nil {
-		mgr.Logger.Error("failed to get helper name", "error", err)
-		os.Exit(16)
-	}
-
 	mgr.Logger.Info("deleting Network Policy used during migration")
-	err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Delete(ctx, helperName, v1.DeleteOptions{})
+	err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).DeleteCollection(ctx, v1.DeleteOptions{}, v1.ListOptions{
+		LabelSelector: "migrator.nais.io/cleanup=" + cfg.ApplicationName,
+	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete Network Policy", "error", err)
-		os.Exit(17)
+		os.Exit(16)
 	}
 }
