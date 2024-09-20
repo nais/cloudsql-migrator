@@ -3,6 +3,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"github.com/sethvargo/go-retry"
 	"time"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
@@ -54,20 +55,32 @@ func SetupMigration(ctx context.Context, cfg *config.Config, gcpProject *resolve
 func DeleteMigrationJob(ctx context.Context, migrationName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	mgr.Logger.Info("deleting previous migration job", "name", migrationName)
 
-	op, err := mgr.DBMigrationClient.DeleteMigrationJob(ctx, &clouddmspb.DeleteMigrationJobRequest{
-		Name: gcpProject.GcpComponentURI("migrationJobs", migrationName),
+	b := retry.NewConstant(20 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
+
+	err := retry.Do(ctx, b, func(ctx context.Context) error {
+		op, err := mgr.DBMigrationClient.DeleteMigrationJob(ctx, &clouddmspb.DeleteMigrationJobRequest{
+			Name: gcpProject.GcpComponentURI("migrationJobs", migrationName),
+		})
+		if err != nil {
+			if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+				return nil
+			}
+			mgr.Logger.Warn("failed to delete previous migration job, retrying", "error", err)
+			return retry.RetryableError(fmt.Errorf("unable to delete previous migration job: %w", err))
+		} else {
+			err = op.Wait(ctx)
+			if err != nil {
+				mgr.Logger.Warn("failed to wait for deletion of previous migration job, retrying", "error", err)
+				return retry.RetryableError(fmt.Errorf("failed to wait for migration job deletion: %w", err))
+			}
+		}
+
+		return nil
 	})
 	if err != nil {
-		if st, ok := status.FromError(err); !ok || st.Code() != codes.NotFound {
-			return fmt.Errorf("unable to delete previous migration job: %w", err)
-		}
-	} else {
-		err = op.Wait(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to wait for migration job deletion: %w", err)
-		}
+		return fmt.Errorf("failed to delete migration job: %w", err)
 	}
-
 	return nil
 }
 
