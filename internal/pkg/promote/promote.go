@@ -24,7 +24,7 @@ func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instan
 
 	mgr.Logger.Info("checking if migration job is ready for promotion", "migrationName", migrationName)
 
-	migrationJob, err := migration.GetMigrationJobWithRetry(ctx, migrationName, gcpProject, mgr, migration.MigrationJobRetries)
+	migrationJob, err := migration.GetMigrationJob(ctx, migrationName, gcpProject, mgr)
 	if err != nil {
 		return err
 	}
