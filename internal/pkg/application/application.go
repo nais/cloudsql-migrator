@@ -87,25 +87,32 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	mgr.Logger.Info("updating application user", "user", target.AppUsername)
 
-	getCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
-	for {
-		mgr.Logger.Info("waiting for user to be up to date", "user", target.AppUsername)
-		sqlUser, err := mgr.SqlUserClient.Get(getCtx, target.AppUsername)
+	b := retry.NewConstant(5 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
+
+	err := retry.Do(ctx, b, func(ctx context.Context) error {
+		sqlUser, err := mgr.SqlUserClient.Get(ctx, target.AppUsername)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				time.Sleep(1 * time.Second)
-				continue
+				mgr.Logger.Warn("user not found, retrying", "user", target.AppUsername)
+				return retry.RetryableError(err)
 			}
 			return fmt.Errorf("failed to get sql user: %w", err)
 		}
 
 		if sqlUser.Status.Conditions[0].Reason != "UpToDate" {
-			time.Sleep(3 * time.Second)
-			continue
+			mgr.Logger.Info("user not up to date, retrying", "user", target.AppUsername)
+			return retry.RetryableError(fmt.Errorf("user not up to date"))
 		}
-		break
+
+		return nil
+	})
+
+	if err != nil {
+		return err
 	}
+
+	mgr.Logger.Info("user is up to date, setting database password", "user", target.AppUsername)
 
 	return database.SetDatabasePassword(ctx, target.Name, target.AppUsername, target.AppPassword, gcpProject, mgr)
 }
