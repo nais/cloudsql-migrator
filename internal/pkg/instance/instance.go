@@ -150,6 +150,7 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, targe
 			return err
 		}
 
+		mgr.Logger.Info("update of source instance applied")
 		return nil
 	})
 
@@ -216,6 +217,7 @@ func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_
 					return retry.RetryableError(errors.New("resource still exists"))
 				}
 				if k8s_errors.IsNotFound(err) {
+					mgr.Logger.Info("resource has been deleted", "kind", r.kind)
 					return nil
 				}
 				logger.Warn("failed to get resource, retrying...", "kind", r.kind, "error", err.Error())
@@ -263,6 +265,8 @@ func PrepareTargetInstance(ctx context.Context, target *resolved.Instance, mgr *
 			}
 			return err
 		}
+
+		mgr.Logger.Info("update of target instance applied")
 		return nil
 	})
 	if err != nil {
@@ -312,6 +316,8 @@ func UpdateTargetInstanceAfterPromotion(ctx context.Context, target *resolved.In
 			}
 			return err
 		}
+
+		mgr.Logger.Info("update of target instance applied")
 		return nil
 	})
 	if err != nil {
@@ -382,6 +388,8 @@ func CleanupAuthNetworks(ctx context.Context, target *resolved.Instance, mgr *co
 			}
 			return err
 		}
+
+		mgr.Logger.Info("update of target instance applied")
 		return nil
 	})
 	if err != nil {

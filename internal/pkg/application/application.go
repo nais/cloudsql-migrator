@@ -64,6 +64,7 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 			return nil, err
 		}
 
+		mgr.Logger.Info("application update applied", "name", cfg.ApplicationName)
 		return app, nil
 	})
 	if err != nil {
@@ -105,14 +106,12 @@ func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, gcpPr
 			return retry.RetryableError(fmt.Errorf("user not up to date"))
 		}
 
+		mgr.Logger.Info("user is up to date, setting database password", "user", target.AppUsername)
 		return nil
 	})
-
 	if err != nil {
 		return err
 	}
-
-	mgr.Logger.Info("user is up to date, setting database password", "user", target.AppUsername)
 
 	return database.SetDatabasePassword(ctx, target.Name, target.AppUsername, target.AppPassword, gcpProject, mgr)
 }

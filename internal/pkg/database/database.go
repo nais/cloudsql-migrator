@@ -168,6 +168,7 @@ func getSqlUser(ctx context.Context, instance string, userName string, gcpProjec
 			}
 			return nil, err
 		}
+		mgr.Logger.Info("got Cloud SQL user", "user", userName)
 		return user, nil
 	})
 	if err != nil {

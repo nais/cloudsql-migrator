@@ -74,6 +74,7 @@ func DeleteMigrationJob(ctx context.Context, migrationName string, gcpProject *r
 			}
 		}
 
+		mgr.Logger.Info("migration job deleted", "name", migrationName)
 		return nil
 	})
 	if err != nil {
@@ -182,6 +183,7 @@ func GetMigrationJob(ctx context.Context, migrationName string, gcpProject *reso
 			return nil, retry.RetryableError(fmt.Errorf("failed to get migration job: %w", err))
 		}
 
+		mgr.Logger.Info("got migration job", "name", migrationJob.Name)
 		return migrationJob, err
 	})
 
