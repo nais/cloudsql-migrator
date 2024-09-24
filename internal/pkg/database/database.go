@@ -56,13 +56,24 @@ func DeleteHelperTargetDatabase(ctx context.Context, cfg *config.Config, target 
 	}
 
 	mgr.Logger.Info("deleting database in target instance")
-	op, err := mgr.SqlAdminService.Databases.Delete(gcpProject.Id, target.Name, databaseName).Context(ctx).Do()
+
+	b := retry.NewConstant(3 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
+
+	op, err := retry.DoValue(ctx, b, func(ctx context.Context) (*sqladmin.Operation, error) {
+		op, err := mgr.SqlAdminService.Databases.Delete(gcpProject.Id, target.Name, databaseName).Context(ctx).Do()
+		if err != nil {
+			return nil, retry.RetryableError(fmt.Errorf("failed to delete database from target instance, retrying: %w", err))
+		}
+		return op, nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to delete database from target instance: %w", err)
+		return err
 	}
 
+	mgr.Logger.Info("waiting for database deletion in target instance to complete")
 	for op.Status != "DONE" {
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 		op, err = mgr.SqlAdminService.Operations.Get(gcpProject.Id, op.Name).Context(ctx).Do()
 		if err != nil {
 			return fmt.Errorf("failed to get delete operation status: %w", err)
