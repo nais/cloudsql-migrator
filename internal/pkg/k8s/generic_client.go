@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/utils/ptr"
 )
 
 type genericClient[T interface {
@@ -61,7 +62,9 @@ func (g *genericClient[T, P]) Get(ctx context.Context, name string) (*P, error) 
 }
 
 func (g *genericClient[T, P]) Delete(ctx context.Context, name string) error {
-	err := g.client.Delete(ctx, name, metav1.DeleteOptions{})
+	err := g.client.Delete(ctx, name, metav1.DeleteOptions{
+		PropagationPolicy: ptr.To(metav1.DeletePropagationForeground),
+	})
 	if err != nil {
 		return err
 	}
@@ -70,7 +73,9 @@ func (g *genericClient[T, P]) Delete(ctx context.Context, name string) error {
 }
 
 func (g *genericClient[T, P]) DeleteCollection(ctx context.Context, listOptions metav1.ListOptions) error {
-	err := g.client.DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
+	err := g.client.DeleteCollection(ctx, metav1.DeleteOptions{
+		PropagationPolicy: ptr.To(metav1.DeletePropagationForeground),
+	}, listOptions)
 	if err != nil {
 		return err
 	}
