@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/sethvargo/go-retry"
 	"io"
 	"net/http"
@@ -38,6 +39,12 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		return nil, err
 	}
 
+	correlationUUID, err := uuid.NewRandom()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate correlation ID: %w", err)
+	}
+	correlationID := correlationUUID.String()
+
 	targetInstance := DefineInstance(&cfg.TargetInstance, app)
 
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
@@ -59,8 +66,9 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 					"migrator.nais.io/cleanup": app.Name,
 				},
 				Annotations: map[string]string{
-					"migrator.nais.io/source-instance": source.Name,
-					"migrator.nais.io/target-instance": cfg.TargetInstance.Name,
+					nais_io_v1.DeploymentCorrelationIDAnnotation: correlationID,
+					"migrator.nais.io/source-instance":           source.Name,
+					"migrator.nais.io/target-instance":           cfg.TargetInstance.Name,
 				},
 			},
 			Spec: nais_io_v1alpha1.ApplicationSpec{
@@ -81,8 +89,9 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 	if err != nil {
 		return nil, err
 	}
+
 	mgr.Logger.Info("started creation of target instance", "helperApp", helperName)
-	for app.Status.SynchronizationState != "RolloutComplete" {
+	for app.Status.CorrelationID != correlationID || app.Status.SynchronizationState != "RolloutComplete" {
 		mgr.Logger.Info("waiting for dummy app rollout")
 		time.Sleep(5 * time.Second)
 		app, err = mgr.AppClient.Get(ctx, helperName)

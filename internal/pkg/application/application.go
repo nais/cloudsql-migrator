@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/sethvargo/go-retry"
 	"time"
 
@@ -41,6 +42,12 @@ func ScaleApplication(ctx context.Context, cfg *config.Config, mgr *common_main.
 func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instanceSettings *config.InstanceSettings, mgr *common_main.Manager) (*nais_io_v1alpha1.Application, error) {
 	mgr.Logger.Info("updating application to use new instance", "name", cfg.ApplicationName)
 
+	correlationUUID, err := uuid.NewRandom()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate correlation ID: %w", err)
+	}
+	correlationID := correlationUUID.String()
+
 	b := retry.NewConstant(1 * time.Second)
 	b = retry.WithMaxDuration(5*time.Minute, b)
 
@@ -50,6 +57,7 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 			return nil, err
 		}
 
+		app.ObjectMeta.Annotations[nais_io_v1.DeploymentCorrelationIDAnnotation] = correlationID
 		targetInstance := instance.DefineInstance(instanceSettings, app)
 		app.Spec.GCP.SqlInstances = []nais_io_v1.CloudSqlInstance{
 			*targetInstance,
@@ -73,7 +81,7 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 
 	// Make sure naiserator and sqeletor has reacted before returning, so downstream resources have been updated
 	time.Sleep(15 * time.Second)
-	for app.Status.SynchronizationState != "RolloutComplete" {
+	for app.Status.CorrelationID != correlationID || app.Status.SynchronizationState != "RolloutComplete" {
 		mgr.Logger.Info("waiting for app rollout", "appName", app.Name)
 		time.Sleep(5 * time.Second)
 		app, err = mgr.AppClient.Get(ctx, app.Name)
