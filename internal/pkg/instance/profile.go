@@ -106,8 +106,8 @@ func deleteOldConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb
 func deleteConnectionProfile(ctx context.Context, profileName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*clouddms.DeleteConnectionProfileOperation, error) {
 	mgr.Logger.Info("deleting connection profile", "name", profileName)
 
-	b := retry.NewConstant(1 * time.Second)
-	b = retry.WithMaxDuration(2*time.Minute, b)
+	b := retry.NewConstant(5 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
 
 	deleteOperation, err := retry.DoValue(ctx, b, func(ctx context.Context) (*clouddms.DeleteConnectionProfileOperation, error) {
 		deleteOperation, err := mgr.DBMigrationClient.DeleteConnectionProfile(ctx, &clouddmspb.DeleteConnectionProfileRequest{
