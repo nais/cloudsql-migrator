@@ -63,6 +63,7 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 		app.Spec.GCP.SqlInstances = []nais_io_v1.CloudSqlInstance{
 			*targetInstance,
 		}
+		app.Status.SynchronizationHash = "resync"
 
 		app, err = mgr.AppClient.Update(ctx, app)
 		if err != nil {
