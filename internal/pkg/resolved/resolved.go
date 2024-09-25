@@ -3,6 +3,7 @@ package resolved
 import (
 	"context"
 	"fmt"
+	"github.com/sethvargo/go-retry"
 	"strings"
 	"time"
 
@@ -143,14 +144,15 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 		return nil, err
 	}
 
-	var sqlInstance *v1beta1.SQLInstance
-	for {
+	b := retry.NewConstant(5 * time.Second)
+	b = retry.WithMaxDuration(15*time.Minute, b)
+
+	sqlInstance, err := retry.DoValue(ctx, b, func(ctx context.Context) (*v1beta1.SQLInstance, error) {
 		mgr.Logger.Info("waiting for sql instance to be ready", "instance", instance.Name)
-		sqlInstance, err = mgr.SqlInstanceClient.Get(ctx, instance.Name)
+		sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, instance.Name)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				time.Sleep(3 * time.Second)
-				continue
+				return nil, retry.RetryableError(fmt.Errorf("sql instance not found, retrying: %w", err))
 			}
 		}
 
@@ -159,17 +161,20 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 			condition := sqlInstance.Status.Conditions[0]
 
 			if condition.Reason == "UpdateFailed" {
-				return nil, fmt.Errorf("sql instance update has failed: %s", condition.Message)
+				return nil, retry.RetryableError(fmt.Errorf("sql instance update has failed, retrying to see if it resolves itself: %s", condition.Message))
 			}
 
 			if condition.Reason == "UpToDate" {
-				break
+				return sqlInstance, nil
 			}
 		}
-
-		time.Sleep(3 * time.Second)
+		return sqlInstance, retry.RetryableError(fmt.Errorf("sql instance not ready, retrying"))
+	})
+	if err != nil {
+		return nil, err
 	}
 
+	mgr.Logger.Info("sql instance is ready, resolving values")
 	if sqlInstance.Status.PublicIpAddress == nil {
 		return nil, fmt.Errorf("sql instance %s does not have public ip address", instance.Name)
 	}
