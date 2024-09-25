@@ -36,10 +36,20 @@ func main() {
 
 	mgr.Logger.Info("rollback started", "config", cfg)
 
-	err = application.ScaleApplication(ctx, &cfg.Config, mgr, 0)
+	mgr.Logger.Info("getting application", "name", cfg.ApplicationName)
+	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
-		mgr.Logger.Error("failed to scale application", "error", err)
-		os.Exit(3)
+		mgr.Logger.Error("failed to get application", "error", err)
+		os.Exit(4)
+	}
+
+	if app.Spec.GCP.SqlInstances[0].Name != cfg.SourceInstance.Name {
+		// We only need to scale down if we are making changes to the instance the application currently uses
+		err = application.ScaleApplication(ctx, &cfg.Config, mgr, 0)
+		if err != nil {
+			mgr.Logger.Error("failed to scale application", "error", err)
+			os.Exit(3)
+		}
 	}
 
 	err = application.DeleteHelperApplication(ctx, &cfg.Config, mgr)
@@ -97,7 +107,7 @@ func main() {
 		os.Exit(11)
 	}
 
-	app, err := application.UpdateApplicationInstance(ctx, &cfg.Config, &cfg.SourceInstance, mgr)
+	app, err = application.UpdateApplicationInstance(ctx, &cfg.Config, &cfg.SourceInstance, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
 		os.Exit(12)
