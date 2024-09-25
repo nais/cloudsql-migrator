@@ -40,7 +40,7 @@ func main() {
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		mgr.Logger.Error("failed to get application", "error", err)
-		os.Exit(4)
+		os.Exit(3)
 	}
 
 	if app.Spec.GCP.SqlInstances[0].Name != cfg.SourceInstance.Name {
@@ -48,81 +48,81 @@ func main() {
 		err = application.ScaleApplication(ctx, &cfg.Config, mgr, 0)
 		if err != nil {
 			mgr.Logger.Error("failed to scale application", "error", err)
-			os.Exit(3)
+			os.Exit(4)
 		}
 	}
 
 	err = application.DeleteHelperApplication(ctx, &cfg.Config, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete helper application", "error", err)
-		os.Exit(15)
+		os.Exit(5)
 	}
 
 	gcpProject, err := resolved.ResolveGcpProject(ctx, &cfg.Config, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve GCP project ID", "error", err)
-		os.Exit(4)
+		os.Exit(6)
 	}
 
 	migrationName, err := resolved.MigrationName(cfg.SourceInstance.Name, cfg.TargetInstance.Name)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve migration name", "error", err)
-		os.Exit(5)
+		os.Exit(7)
 	}
 
 	err = migration.DeleteMigrationJob(ctx, migrationName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete migration job", "error", err)
-		os.Exit(6)
+		os.Exit(8)
 	}
 
 	err = instance.CleanupConnectionProfiles(ctx, &cfg.Config, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to cleanup connection profiles", "error", err)
-		os.Exit(7)
+		os.Exit(9)
 	}
 
 	err = instance.DeleteInstance(ctx, cfg.TargetInstance.Name, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete target instance", "error", err)
-		os.Exit(8)
+		os.Exit(10)
 	}
 
 	masterInstanceName := fmt.Sprintf("%s-master", cfg.TargetInstance.Name)
 	err = instance.DeleteInstance(ctx, masterInstanceName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete master instance", "error", err)
-		os.Exit(9)
+		os.Exit(11)
 	}
 
 	err = database.DeleteTargetDatabaseResource(ctx, &cfg.Config, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete target database resource", "error", err)
-		os.Exit(10)
+		os.Exit(12)
 	}
 
 	err = instance.DeleteSslCertByCommonName(ctx, cfg.SourceInstance.Name, cfg.ApplicationName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete old ssl certificate", "error", err)
-		os.Exit(11)
+		os.Exit(13)
 	}
 
 	app, err = application.UpdateApplicationInstance(ctx, &cfg.Config, &cfg.SourceInstance, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
-		os.Exit(12)
+		os.Exit(14)
 	}
 
 	source, err := resolved.ResolveInstance(ctx, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve updated target", "error", err)
-		os.Exit(13)
+		os.Exit(15)
 	}
 
 	err = application.UpdateApplicationUser(ctx, source, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application user", "error", err)
-		os.Exit(14)
+		os.Exit(16)
 	}
 
 	mgr.Logger.Info("deleting SQL SSL Certificates used during migration")
@@ -131,7 +131,7 @@ func main() {
 	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete SQL SSL Certificates", "error", err)
-		os.Exit(15)
+		os.Exit(17)
 	}
 
 	mgr.Logger.Info("deleting Network Policy used during migration")
@@ -140,6 +140,6 @@ func main() {
 	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete Network Policy", "error", err)
-		os.Exit(16)
+		os.Exit(18)
 	}
 }
