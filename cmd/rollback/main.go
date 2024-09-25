@@ -42,6 +42,12 @@ func main() {
 		os.Exit(3)
 	}
 
+	err = application.DeleteHelperApplication(ctx, &cfg.Config, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to delete helper application", "error", err)
+		os.Exit(15)
+	}
+
 	gcpProject, err := resolved.ResolveGcpProject(ctx, &cfg.Config, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve GCP project ID", "error", err)

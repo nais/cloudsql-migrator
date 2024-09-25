@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/sethvargo/go-retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -132,7 +133,7 @@ func DeleteHelperApplication(ctx context.Context, cfg *config.Config, mgr *commo
 
 	mgr.Logger.Info("deleting migration application", "name", helperName)
 
-	err = mgr.AppClient.Delete(ctx, helperName)
+	err = client.IgnoreNotFound(mgr.AppClient.Delete(ctx, helperName))
 	if err != nil {
 		return err
 	}
