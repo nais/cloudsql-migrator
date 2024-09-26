@@ -83,7 +83,7 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 
 	// Make sure naiserator and sqeletor has reacted before returning, so downstream resources have been updated
 	time.Sleep(15 * time.Second)
-	for app.Status.CorrelationID != correlationID || app.Status.SynchronizationState != "RolloutComplete" {
+	for app.Status.CorrelationID != correlationID || (app.Status.SynchronizationState != "RolloutComplete" && app.Status.SynchronizationState != "Synchronized") {
 		mgr.Logger.Info("waiting for app rollout", "appName", app.Name)
 		time.Sleep(5 * time.Second)
 		app, err = mgr.AppClient.Get(ctx, app.Name)
