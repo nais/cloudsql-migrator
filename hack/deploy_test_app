@@ -3,7 +3,9 @@
 export NUM="${1:-0}"
 export NAMESPACE="${2:-basseng}"
 
-cat > nais.yaml <<EOF
+nais_yaml=$(mktemp -t nais.XXXXXX.yaml)
+
+cat > "${nais_yaml}" <<EOF
 kind: "Application"
 apiVersion: "nais.io/v1alpha1"
 metadata:
@@ -35,4 +37,4 @@ spec:
             envVarPrefix: DB
 EOF
 
-kubectl apply -f nais.yaml
+kubectl apply -f "${nais_yaml}"
