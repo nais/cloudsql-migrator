@@ -123,7 +123,7 @@ func main() {
 		os.Exit(16)
 	}
 
-	err = instance.WaitForCnrmResourcesToGoAway(ctx, cfg.TargetInstance.Name, mgr)
+	err = instance.WaitForCnrmResourcesToGoAway(ctx, cfg.TargetInstance.Name, cfg.ApplicationName, mgr)
 	if err != nil {
 		mgr.Logger.Error("helper instance definition is stuck", "error", err)
 		os.Exit(17)

@@ -191,8 +191,8 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, targe
 	return nil
 }
 
-func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_main.Manager) error {
-	logger := mgr.Logger.With("instance_name", name)
+func WaitForCnrmResourcesToGoAway(ctx context.Context, instanceName string, appName string, mgr *common_main.Manager) error {
+	logger := mgr.Logger.With("instance_name", instanceName)
 	logger.Info("waiting for relevant CNRM resources to go away...")
 
 	type resource struct {
@@ -203,14 +203,24 @@ func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_
 		{
 			"SQLInstance",
 			func() error {
-				_, err := mgr.SqlInstanceClient.Get(ctx, name)
+				_, err := mgr.SqlInstanceClient.Get(ctx, instanceName)
 				return err
 			},
 		},
 		{
 			"SQLUser",
 			func() error {
-				_, err := mgr.SqlUserClient.Get(ctx, name)
+				_, err := mgr.SqlUserClient.Get(ctx, instanceName)
+				return err
+			},
+		},
+		{
+			"SQLDatabase",
+			func() error {
+				exists, err := mgr.SqlDatabaseClient.ExistsByLabel(ctx, fmt.Sprintf("app=%s", appName))
+				if exists {
+					return fmt.Errorf("resource still exists")
+				}
 				return err
 			},
 		},
