@@ -39,12 +39,6 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		return nil, err
 	}
 
-	correlationUUID, err := uuid.NewRandom()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate correlation ID: %w", err)
-	}
-	correlationID := correlationUUID.String()
-
 	targetInstance := DefineInstance(&cfg.TargetInstance, app)
 
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
@@ -55,6 +49,12 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 	mgr.Logger.Info("get helper application", "name", helperName)
 	dummyApp, err := mgr.AppClient.Get(ctx, helperName)
 	if k8s_errors.IsNotFound(err) {
+		correlationUUID, err := uuid.NewRandom()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate correlation ID: %w", err)
+		}
+		correlationID := correlationUUID.String()
+
 		dummyApp = &nais_io_v1alpha1.Application{
 			TypeMeta: app.TypeMeta,
 			ObjectMeta: metav1.ObjectMeta{
@@ -90,6 +90,10 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		return nil, err
 	}
 
+	correlationID, ok := dummyApp.Annotations[nais_io_v1.DeploymentCorrelationIDAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("missing correlation ID in dummy app %s", helperName)
+	}
 	mgr.Logger.Info("started creation of target instance", "helperApp", helperName)
 	for app.Status.CorrelationID != correlationID || app.Status.SynchronizationState != "RolloutComplete" {
 		mgr.Logger.Info("waiting for dummy app rollout")
