@@ -152,4 +152,6 @@ func main() {
 		mgr.Logger.Error("Failed to create backup", "error", err)
 		os.Exit(21)
 	}
+
+	mgr.Logger.Info("promote completed")
 }

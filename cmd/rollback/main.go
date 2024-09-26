@@ -148,4 +148,6 @@ func main() {
 		mgr.Logger.Error("failed to delete Network Policy", "error", err)
 		os.Exit(19)
 	}
+
+	mgr.Logger.Info("rollback completed")
 }

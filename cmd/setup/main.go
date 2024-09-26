@@ -122,4 +122,5 @@ func main() {
 		os.Exit(16)
 	}
 
+	mgr.Logger.Info("setup completed")
 }
