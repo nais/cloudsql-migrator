@@ -49,7 +49,8 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 	mgr.Logger.Info("get helper application", "name", helperName)
 	dummyApp, err := mgr.AppClient.Get(ctx, helperName)
 	if k8s_errors.IsNotFound(err) {
-		correlationUUID, err := uuid.NewRandom()
+		var correlationUUID uuid.UUID
+		correlationUUID, err = uuid.NewRandom()
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate correlation ID: %w", err)
 		}
@@ -84,7 +85,7 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		}
 
 		mgr.Logger.Info("creating helper application", "name", helperName)
-		app, err = mgr.AppClient.Create(ctx, dummyApp)
+		dummyApp, err = mgr.AppClient.Create(ctx, dummyApp)
 	}
 	if err != nil {
 		return nil, err
@@ -95,10 +96,10 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		return nil, fmt.Errorf("missing correlation ID in dummy app %s", helperName)
 	}
 	mgr.Logger.Info("started creation of target instance", "helperApp", helperName)
-	for app.Status.CorrelationID != correlationID || app.Status.SynchronizationState != "RolloutComplete" {
+	for dummyApp.Status.CorrelationID != correlationID || dummyApp.Status.SynchronizationState != "RolloutComplete" {
 		mgr.Logger.Info("waiting for dummy app rollout")
 		time.Sleep(5 * time.Second)
-		app, err = mgr.AppClient.Get(ctx, helperName)
+		dummyApp, err = mgr.AppClient.Get(ctx, helperName)
 		if err != nil {
 			return nil, err
 		}
