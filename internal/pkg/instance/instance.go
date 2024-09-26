@@ -199,10 +199,16 @@ func WaitForSQLDatabaseResourceToGoAway(ctx context.Context, appName string, mgr
 
 	err := retry.Do(ctx, b, func(ctx context.Context) error {
 		exists, err := mgr.SqlDatabaseClient.ExistsByLabel(ctx, fmt.Sprintf("app=%s", appName))
-		if exists {
-			return retry.RetryableError(fmt.Errorf("resource still exists"))
+		if err != nil {
+			mgr.Logger.Warn("failed to list SQLDatabase resource, retrying...", "error", err.Error())
+			return retry.RetryableError(err)
 		}
-		return retry.RetryableError(err)
+		if exists {
+			mgr.Logger.Info("waiting for SQLDatabase resource to go away...")
+			return retry.RetryableError(errors.New("resource still exists"))
+		}
+		mgr.Logger.Info("SQLDatabase resource has been deleted")
+		return nil
 	})
 	if err == nil {
 		mgr.Logger.Info("resource has been deleted")
