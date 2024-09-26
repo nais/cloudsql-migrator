@@ -191,6 +191,25 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, targe
 	return nil
 }
 
+func WaitForSQLDatabaseResourceToGoAway(ctx context.Context, appName string, mgr *common_main.Manager) error {
+	mgr.Logger.Info("waiting for SQLDatabase resource to go away...")
+
+	b := retry.NewConstant(5 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
+
+	err := retry.Do(ctx, b, func(ctx context.Context) error {
+		exists, err := mgr.SqlDatabaseClient.ExistsByLabel(ctx, fmt.Sprintf("app=%s", appName))
+		if exists {
+			return retry.RetryableError(fmt.Errorf("resource still exists"))
+		}
+		return retry.RetryableError(err)
+	})
+	if err == nil {
+		mgr.Logger.Info("resource has been deleted")
+	}
+	return err
+}
+
 func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_main.Manager) error {
 	logger := mgr.Logger.With("instance_name", name)
 	logger.Info("waiting for relevant CNRM resources to go away...")

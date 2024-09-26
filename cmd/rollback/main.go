@@ -107,22 +107,28 @@ func main() {
 		os.Exit(13)
 	}
 
+	err = instance.WaitForSQLDatabaseResourceToGoAway(ctx, cfg.ApplicationName, mgr)
+	if err != nil {
+		mgr.Logger.Error("sqldatabase is stuck", "error", err)
+		os.Exit(14)
+	}
+
 	app, err = application.UpdateApplicationInstance(ctx, &cfg.Config, &cfg.SourceInstance, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
-		os.Exit(14)
+		os.Exit(15)
 	}
 
 	source, err := resolved.ResolveInstance(ctx, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve updated target", "error", err)
-		os.Exit(15)
+		os.Exit(16)
 	}
 
 	err = application.UpdateApplicationUser(ctx, source, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application user", "error", err)
-		os.Exit(16)
+		os.Exit(17)
 	}
 
 	mgr.Logger.Info("deleting SQL SSL Certificates used during migration")
@@ -131,7 +137,7 @@ func main() {
 	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete SQL SSL Certificates", "error", err)
-		os.Exit(17)
+		os.Exit(18)
 	}
 
 	mgr.Logger.Info("deleting Network Policy used during migration")
@@ -140,6 +146,6 @@ func main() {
 	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete Network Policy", "error", err)
-		os.Exit(18)
+		os.Exit(19)
 	}
 }
