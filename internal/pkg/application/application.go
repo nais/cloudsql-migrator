@@ -53,7 +53,8 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 	b = retry.WithMaxDuration(5*time.Minute, b)
 
 	app, err := retry.DoValue(ctx, b, func(ctx context.Context) (*nais_io_v1alpha1.Application, error) {
-		app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
+		var app *nais_io_v1alpha1.Application
+		app, err = mgr.AppClient.Get(ctx, cfg.ApplicationName)
 		if err != nil {
 			return nil, err
 		}

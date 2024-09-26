@@ -3,6 +3,7 @@ package resolved
 import (
 	"context"
 	"fmt"
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"github.com/sethvargo/go-retry"
 	"strings"
 	"time"
@@ -120,18 +121,28 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 
 	mgr.Logger.Info("resolving sql instance", "name", name)
 
-	var secret *v1.Secret
-	for {
-		secret, err = mgr.K8sClient.CoreV1().Secrets(app.Namespace).Get(ctx, "google-sql-"+app.Name, meta_v1.GetOptions{})
+	b := retry.NewConstant(5 * time.Second)
+	b = retry.WithMaxDuration(15*time.Minute, b)
+
+	secretName := "google-sql-" + app.Name
+	secret, err := retry.DoValue(ctx, b, func(ctx context.Context) (*v1.Secret, error) {
+		var secret *v1.Secret
+		secret, err = mgr.K8sClient.CoreV1().Secrets(app.Namespace).Get(ctx, secretName, meta_v1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				mgr.Logger.Info("waiting for secret to be created", "secret", "google-sql-"+app.Name)
-				time.Sleep(3 * time.Second)
-				continue
+				mgr.Logger.Info("waiting for secret to be created", "secret", secretName)
+				return nil, retry.RetryableError(err)
 			}
 			return nil, err
 		}
-		break
+		if secret.Annotations[nais_io_v1.DeploymentCorrelationIDAnnotation] != app.Status.CorrelationID {
+			mgr.Logger.Info("waiting for secret to be updated", "secret", secretName)
+			return nil, retry.RetryableError(fmt.Errorf("secret not updated, retrying"))
+		}
+		return secret, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	err = instance.resolveAppUsername(secret)
@@ -144,7 +155,7 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 		return nil, err
 	}
 
-	b := retry.NewConstant(5 * time.Second)
+	b = retry.NewConstant(5 * time.Second)
 	b = retry.WithMaxDuration(15*time.Minute, b)
 
 	sqlInstance, err := retry.DoValue(ctx, b, func(ctx context.Context) (*v1beta1.SQLInstance, error) {
