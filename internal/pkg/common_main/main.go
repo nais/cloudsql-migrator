@@ -58,8 +58,9 @@ func Main(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Manage
 		return nil, fmt.Errorf("failed to create dbMigrationclient: %w", err)
 	}
 
-	logger = logger.With("app", cfg.ApplicationName,
-		"targetInstance", cfg.TargetInstance.Name,
+	logger = logger.With(
+		"app", cfg.ApplicationName,
+		"migrationTarget", cfg.TargetInstance.Name,
 	)
 
 	return &Manager{
