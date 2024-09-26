@@ -28,7 +28,7 @@ func main() {
 	}
 
 	logger := config.SetupLogging(&cfg.Config)
-	mgr, err := common_main.Main(ctx, &cfg.Config, logger)
+	mgr, err := common_main.Main(ctx, &cfg.Config, "rollback", logger)
 	if err != nil {
 		logger.Error("failed to complete configuration", "error", err)
 		os.Exit(2)

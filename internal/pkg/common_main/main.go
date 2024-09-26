@@ -31,7 +31,7 @@ type Manager struct {
 	K8sClient            kubernetes.Interface
 }
 
-func Main(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Manager, error) {
+func Main(ctx context.Context, cfg *config.Config, phase any, logger *slog.Logger) (*Manager, error) {
 	clientset, dynamicClient, err := newK8sClient()
 	if err != nil {
 		return nil, err
@@ -59,8 +59,9 @@ func Main(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Manage
 	}
 
 	logger = logger.With(
-		"app", cfg.ApplicationName,
+		"migrationApp", cfg.ApplicationName,
 		"migrationTarget", cfg.TargetInstance.Name,
+		"migrationPhase", phase,
 	)
 
 	return &Manager{
