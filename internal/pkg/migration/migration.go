@@ -37,12 +37,13 @@ func SetupMigration(ctx context.Context, cfg *config.Config, gcpProject *resolve
 		return err
 	}
 
-	err = demoteTargetInstance(ctx, migrationJob, mgr)
+	migrationJobName := migrationJob.Name
+	err = demoteTargetInstance(ctx, migrationJobName, mgr)
 	if err != nil {
 		return err
 	}
 
-	err = startMigrationJob(ctx, migrationJob, mgr)
+	err = startMigrationJob(ctx, migrationJobName, mgr)
 	if err != nil {
 		return err
 	}
@@ -83,10 +84,10 @@ func DeleteMigrationJob(ctx context.Context, migrationName string, gcpProject *r
 	return nil
 }
 
-func demoteTargetInstance(ctx context.Context, migrationJob *clouddmspb.MigrationJob, mgr *common_main.Manager) error {
+func demoteTargetInstance(ctx context.Context, migrationJobName string, mgr *common_main.Manager) error {
 	mgr.Logger.Info("demoting target instance")
 
-	op, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.DemoteDestination(migrationJob.Name, &datamigration.DemoteDestinationRequest{}).Context(ctx).Do()
+	op, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.DemoteDestination(migrationJobName, &datamigration.DemoteDestinationRequest{}).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to demote target instance: %w", err)
 	}
@@ -151,8 +152,8 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *config.C
 	return migrationJob, nil
 }
 
-func startMigrationJob(ctx context.Context, migrationJob *clouddmspb.MigrationJob, mgr *common_main.Manager) error {
-	logger := mgr.Logger.With("migrationJob", migrationJob.Name)
+func startMigrationJob(ctx context.Context, migrationJobName string, mgr *common_main.Manager) error {
+	logger := mgr.Logger.With("migrationJobName", migrationJobName)
 	logger.Info("starting migration job")
 
 	b := retry.NewConstant(20 * time.Second)
@@ -160,14 +161,14 @@ func startMigrationJob(ctx context.Context, migrationJob *clouddmspb.MigrationJo
 
 	err := retry.Do(ctx, b, func(ctx context.Context) error {
 		startOperation, err := mgr.DBMigrationClient.StartMigrationJob(ctx, &clouddmspb.StartMigrationJobRequest{
-			Name: migrationJob.Name,
+			Name: migrationJobName,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to start migration job: %w", err)
 		}
 
 		logger.Info("waiting for migration job to start")
-		migrationJob, err = startOperation.Wait(ctx)
+		_, err = startOperation.Wait(ctx)
 		if err != nil {
 			return retry.RetryableError(fmt.Errorf("failed waiting for migration job to start, retrying: %w", err))
 		}
