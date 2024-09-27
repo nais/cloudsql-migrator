@@ -135,25 +135,10 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 			}
 			return nil, err
 		}
-
-		lastUpdated, ok := secret.Annotations["sqeletor.nais.io/last-updated"]
-		if ok {
-			appSyncTime := time.Unix(0, app.Status.SynchronizationTime)
-			lastUpdatedTime, err := time.Parse(time.RFC3339, lastUpdated)
-			if err != nil {
-				return nil, fmt.Errorf("unable to parse last updated time %q: %w", lastUpdated, err)
-			}
-			if appSyncTime.After(lastUpdatedTime) {
-				mgr.Logger.Info("waiting for secret to be updated, retrying", "secret", secretName)
-				return nil, retry.RetryableError(fmt.Errorf("secret not updated, retrying"))
-			}
-		} else {
-			if secret.Annotations[nais_io_v1.DeploymentCorrelationIDAnnotation] != app.Status.CorrelationID {
-				mgr.Logger.Info("waiting for secret to be updated, retrying", "secret", secretName)
-				return nil, retry.RetryableError(fmt.Errorf("secret not updated, retrying"))
-			}
+		if secret.Annotations[nais_io_v1.DeploymentCorrelationIDAnnotation] != app.Status.CorrelationID {
+			mgr.Logger.Info("waiting for secret to be updated", "secret", secretName)
+			return nil, retry.RetryableError(fmt.Errorf("secret not updated, retrying"))
 		}
-
 		return secret, nil
 	})
 	if err != nil {
