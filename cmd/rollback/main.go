@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/nais/cloudsql-migrator/internal/pkg/application"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
@@ -12,8 +15,6 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"github.com/sethvargo/go-envconfig"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"time"
 )
 
 func main() {
@@ -125,7 +126,7 @@ func main() {
 		os.Exit(16)
 	}
 
-	err = application.UpdateApplicationUser(ctx, source, gcpProject, mgr)
+	err = application.UpdateApplicationUser(ctx, source, gcpProject, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application user", "error", err)
 		os.Exit(17)

@@ -141,7 +141,7 @@ func main() {
 		os.Exit(19)
 	}
 
-	err = application.UpdateApplicationUser(ctx, target, gcpProject, mgr)
+	err = application.UpdateApplicationUser(ctx, target, gcpProject, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application user", "error", err)
 		os.Exit(20)

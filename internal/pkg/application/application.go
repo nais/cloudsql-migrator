@@ -3,10 +3,11 @@ package application
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sethvargo/go-retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
@@ -96,7 +97,7 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 	return app, err
 }
 
-func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
+func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, gcpProject *resolved.GcpProject, app *nais_io_v1alpha1.Application, mgr *common_main.Manager) error {
 	mgr.Logger.Info("updating application user", "user", target.AppUsername)
 
 	b := retry.NewConstant(5 * time.Second)
@@ -106,19 +107,22 @@ func UpdateApplicationUser(ctx context.Context, target *resolved.Instance, gcpPr
 		sqlUser, err := mgr.SqlUserClient.Get(ctx, target.AppUsername)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				mgr.Logger.Warn("user not found, retrying", "user", target.AppUsername)
+				mgr.Logger.Warn("sql user not found, retrying", "user", target.AppUsername)
 				return retry.RetryableError(err)
 			}
 			return fmt.Errorf("failed to get sql user: %w", err)
 		}
 
-		if sqlUser.Status.Conditions[0].Reason != "UpToDate" {
-			mgr.Logger.Info("user not up to date, retrying", "user", target.AppUsername)
-			return retry.RetryableError(fmt.Errorf("user not up to date"))
+		annotationUpdated := sqlUser.Annotations[nais_io_v1.DeploymentCorrelationIDAnnotation] == app.Status.CorrelationID
+		conditions := sqlUser.Status.Conditions
+		conditionsUpToDate := len(conditions) > 0 && conditions[0].Reason == "UpToDate"
+		if annotationUpdated && conditionsUpToDate {
+			mgr.Logger.Info("sql user is up to date, setting database password", "user", target.AppUsername)
+			return nil
 		}
 
-		mgr.Logger.Info("user is up to date, setting database password", "user", target.AppUsername)
-		return nil
+		mgr.Logger.Info("sql user not up to date, retrying", "user", target.AppUsername)
+		return retry.RetryableError(fmt.Errorf("sql user not up to date"))
 	})
 	if err != nil {
 		return err
