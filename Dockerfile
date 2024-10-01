@@ -29,5 +29,5 @@ FROM gcr.io/distroless/static-debian11
 WORKDIR /
 COPY --from=builder /workspace/bin/setup /setup
 COPY --from=builder /workspace/bin/promote /promote
-COPY --from=builder /workspace/bin/cleanup /cleanup
+COPY --from=builder /workspace/bin/finalize /finalize
 COPY --from=builder /workspace/bin/rollback /rollback

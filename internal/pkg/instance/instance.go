@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/sethvargo/go-retry"
 	"io"
 	"net/http"
 	"os"
 	"os/user"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/sethvargo/go-retry"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	_ "github.com/lib/pq"
@@ -62,9 +63,9 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 				Name:      helperName,
 				Namespace: cfg.Namespace,
 				Labels: map[string]string{
-					"app":                      app.Name,
-					"team":                     cfg.Namespace,
-					"migrator.nais.io/cleanup": app.Name,
+					"app":                       app.Name,
+					"team":                      cfg.Namespace,
+					"migrator.nais.io/finalize": app.Name,
 				},
 				Annotations: map[string]string{
 					nais_io_v1.DeploymentCorrelationIDAnnotation: correlationID,

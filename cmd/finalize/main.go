@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	cfg := config.CleanupConfig{}
+	cfg := config.FinalizeConfig{}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
@@ -27,7 +27,7 @@ func main() {
 	}
 
 	logger := config.SetupLogging(&cfg.Config)
-	mgr, err := common_main.Main(ctx, &cfg.Config, "cleanup", logger)
+	mgr, err := common_main.Main(ctx, &cfg.Config, "finalize", logger)
 	if err != nil {
 		logger.Error("failed to complete configuration", "error", err)
 		os.Exit(2)
@@ -39,7 +39,7 @@ func main() {
 		os.Exit(3)
 	}
 
-	mgr.Logger.Info("cleanup started", "config", cfg)
+	mgr.Logger.Info("finalize started", "config", cfg)
 
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
@@ -92,7 +92,7 @@ func main() {
 
 	mgr.Logger.Info("deleting SQL SSL Certificates used during migration")
 	err = mgr.SqlSslCertClient.DeleteCollection(ctx, v1.ListOptions{
-		LabelSelector: "migrator.nais.io/cleanup=" + cfg.ApplicationName,
+		LabelSelector: "migrator.nais.io/finalize=" + cfg.ApplicationName,
 	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete SQL SSL Certificates", "error", err)
@@ -101,12 +101,12 @@ func main() {
 
 	mgr.Logger.Info("deleting Network Policy used during migration")
 	err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).DeleteCollection(ctx, v1.DeleteOptions{}, v1.ListOptions{
-		LabelSelector: "migrator.nais.io/cleanup=" + cfg.ApplicationName,
+		LabelSelector: "migrator.nais.io/finalize=" + cfg.ApplicationName,
 	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete Network Policy", "error", err)
 		os.Exit(13)
 	}
 
-	mgr.Logger.Info("cleanup completed")
+	mgr.Logger.Info("finalize completed")
 }

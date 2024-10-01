@@ -5,7 +5,7 @@ Tool to migrate between Cloud SQL instances in the nais platform.
 
 ## How does it work
 
-Three phases are executed during the migration operation: Setup, Promotion, Cleanup
+Three phases are executed during the migration operation: Setup, Promotion, Finalize
 
 Setup creates the new SQL instance based on the parameters provided for the migration job. These parameters are described in detail later.
 The connection profiles and the migration job itself is also created in this phase, and when finished is running the new instance as a replica of
@@ -20,7 +20,7 @@ All down time for the migration operation is incurred in this phase.
 
 ![promote phase](img/cloudsql-migrator-promote.png "Promote phase")
 
-Cleanup removes unused kubernetes resources and google cloud resources. This phase should be executed after the teams have verified that the application
+Finalize removes unused kubernetes resources and google cloud resources. This phase should be executed after the teams have verified that the application
 is working as expected.
 
 Before setup and after promotion we create a backup of the instance in use.
@@ -64,7 +64,7 @@ This will always include the new name of the instance, and possibly the tier, di
 
 Clean up the resources when migration is completed:
 ```shell
-cloudsql-migrator cleanup
+cloudsql-migrator finalize
 ```
 
 ## Detailed description of the phases
@@ -112,7 +112,7 @@ When the replica is up-to-date
 6. Scale up the app to the desired number of replicas
 7. Take an explicit backup after upgrading
 
-### Phase 3: Cleanup
+### Phase 3: Finalize
 
 Once the migration is verified and everything is working as it should
 

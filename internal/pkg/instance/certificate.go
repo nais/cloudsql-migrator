@@ -41,9 +41,9 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Man
 				Name:      helperName,
 				Namespace: cfg.Namespace,
 				Labels: map[string]string{
-					"app":                      cfg.ApplicationName,
-					"team":                     cfg.Namespace,
-					"migrator.nais.io/cleanup": cfg.ApplicationName,
+					"app":                       cfg.ApplicationName,
+					"team":                      cfg.Namespace,
+					"migrator.nais.io/finalize": cfg.ApplicationName,
 				},
 			},
 			Spec: v1beta1.SQLSSLCertSpec{

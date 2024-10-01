@@ -134,7 +134,7 @@ func main() {
 
 	mgr.Logger.Info("deleting SQL SSL Certificates used during migration")
 	err = mgr.SqlSslCertClient.DeleteCollection(ctx, v1.ListOptions{
-		LabelSelector: "migrator.nais.io/cleanup=" + cfg.ApplicationName,
+		LabelSelector: "migrator.nais.io/finalize=" + cfg.ApplicationName,
 	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete SQL SSL Certificates", "error", err)
@@ -143,7 +143,7 @@ func main() {
 
 	mgr.Logger.Info("deleting Network Policy used during migration")
 	err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).DeleteCollection(ctx, v1.DeleteOptions{}, v1.ListOptions{
-		LabelSelector: "migrator.nais.io/cleanup=" + cfg.ApplicationName,
+		LabelSelector: "migrator.nais.io/finalize=" + cfg.ApplicationName,
 	})
 	if err != nil {
 		mgr.Logger.Error("failed to delete Network Policy", "error", err)

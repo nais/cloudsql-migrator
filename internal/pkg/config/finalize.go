@@ -1,6 +1,6 @@
 package config
 
-type CleanupConfig struct {
+type FinalizeConfig struct {
 	Config
 
 	// Source instance name

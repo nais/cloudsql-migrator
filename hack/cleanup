@@ -10,10 +10,10 @@ fi
 kubectl patch app "db-tester-${NUM}" --type=json -p '[{"op": "replace", "path": "/spec/gcp/sqlInstances/0/cascadingDelete", "value": true}]'
 sleep 3
 kubectl delete app "db-tester-${NUM}"
-kubectl delete app -lmigrator.nais.io/cleanup=db-tester-"${NUM}"
+kubectl delete app -lmigrator.nais.io/finalize=db-tester-"${NUM}"
 sleep 3
 kubectl delete sqldatabase -lapp=db-tester-"${NUM}"
 kubectl delete sqluser -lapp=db-tester-"${NUM}"
 kubectl delete sqlsslcert -lapp=db-tester-"${NUM}"
 kubectl delete sqlinstance -lapp=db-tester-"${NUM}"
-kubectl delete netpol -lmigrator.nais.io/cleanup=db-tester-"${NUM}"
+kubectl delete netpol -lmigrator.nais.io/finalize=db-tester-"${NUM}"
