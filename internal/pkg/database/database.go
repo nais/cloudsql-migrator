@@ -5,6 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
@@ -14,10 +19,6 @@ import (
 	"google.golang.org/api/sqladmin/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"log/slog"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *resolved.Instance, databaseName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
@@ -264,8 +265,7 @@ func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, target *reso
 
 	logger.Info("reassigning ownership from cloudsqlexternalsync to app user", "database", databaseName, "user", target.AppUsername)
 
-	_, err = dbConn.ExecContext(ctx, "GRANT cloudsqlexternalsync to cloudsqlsuperuser;"+
-		"REASSIGN OWNED BY cloudsqlexternalsync to cloudsqlsuperuser;")
+	_, err = dbConn.ExecContext(ctx, "REASSIGN OWNED BY cloudsqlexternalsync to cloudsqlsuperuser;")
 	if err != nil {
 		return err
 	}
