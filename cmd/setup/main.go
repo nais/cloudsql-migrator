@@ -115,7 +115,7 @@ func main() {
 		os.Exit(15)
 	}
 
-	err = database.PrepareTargetDatabase(ctx, cfg, target, gcpProject, mgr)
+	_, err = database.PrepareTargetDatabase(ctx, cfg, target, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare target database", "error", err)
 		os.Exit(16)

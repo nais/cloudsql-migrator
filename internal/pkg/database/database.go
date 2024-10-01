@@ -96,17 +96,20 @@ func DeleteTargetDatabaseResource(ctx context.Context, cfg *config.Config, mgr *
 	return nil
 }
 
-func PrepareTargetDatabase(ctx context.Context, cfg *config.Config, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
+func PrepareTargetDatabase(ctx context.Context, cfg *config.Config, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*instance.CertPaths, error) {
 	databasePassword := makePassword(cfg, mgr.Logger)
 	err := SetDatabasePassword(ctx, cfg.TargetInstance.Name, config.PostgresDatabaseUser, databasePassword, gcpProject, mgr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	target.PostgresPassword = databasePassword
 
-	_, err = instance.CreateSslCert(ctx, cfg, mgr, cfg.TargetInstance.Name, &target.SslCert)
+	certPaths, err := instance.CreateSslCert(ctx, cfg, mgr, cfg.TargetInstance.Name, &target.SslCert)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil
+	return certPaths, nil
 }
 
 func makePassword(cfg *config.Config, logger *slog.Logger) string {
@@ -250,8 +253,8 @@ func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, target *reso
 
 	dbConn, err := createConnection(
 		target.PrimaryIp,
-		target.AppUsername,
-		target.AppPassword,
+		config.PostgresDatabaseUser,
+		target.PostgresPassword,
 		databaseName,
 		certPaths.RootCertPath,
 		certPaths.KeyPath,
@@ -263,7 +266,7 @@ func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, target *reso
 	}
 	defer dbConn.Close()
 
-	logger.Info("reassigning ownership from cloudsqlexternalsync to app user", "database", databaseName, "user", target.AppUsername)
+	logger.Info("reassigning ownership from cloudsqlexternalsync to cloudsqlsuperuser", "database", databaseName, "user", target.AppUsername)
 
 	_, err = dbConn.ExecContext(ctx, "REASSIGN OWNED BY cloudsqlexternalsync to cloudsqlsuperuser;")
 	if err != nil {

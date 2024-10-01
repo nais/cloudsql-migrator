@@ -99,15 +99,15 @@ func main() {
 		os.Exit(12)
 	}
 
-	certPaths, err := instance.CreateSslCert(ctx, cfg, mgr, target.Name, &target.SslCert)
+	certPaths, err := database.PrepareTargetDatabase(ctx, cfg, target, gcpProject, mgr)
 	if err != nil {
-		mgr.Logger.Error("failed to create ssl certificate", "error", err)
+		mgr.Logger.Error("failed to prepare target database", "error", err)
 		os.Exit(13)
 	}
 
-	err = database.ChangeOwnership(ctx, mgr, target, "postgres", certPaths)
+	err = database.ChangeOwnership(ctx, mgr, target, config.PostgresDatabaseName, certPaths)
 	if err != nil {
-		mgr.Logger.Error("failed to change ownership for database", "databaseName", "postgres", "error", err)
+		mgr.Logger.Error("failed to change ownership for database", "databaseName", config.PostgresDatabaseName, "error", err)
 		os.Exit(14)
 	}
 
