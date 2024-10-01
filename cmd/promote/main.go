@@ -105,52 +105,58 @@ func main() {
 		os.Exit(13)
 	}
 
+	err = database.ChangeOwnership(ctx, mgr, target, "postgres", certPaths)
+	if err != nil {
+		mgr.Logger.Error("failed to change ownership for database", "databaseName", "postgres", "error", err)
+		os.Exit(14)
+	}
+
 	err = database.ChangeOwnership(ctx, mgr, target, databaseName, certPaths)
 	if err != nil {
-		mgr.Logger.Error("failed to change ownership", "error", err)
-		os.Exit(14)
+		mgr.Logger.Error("failed to change ownership for database", "databaseName", databaseName, "error", err)
+		os.Exit(15)
 	}
 
 	err = application.DeleteHelperApplication(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete helper application", "error", err)
-		os.Exit(15)
+		os.Exit(16)
 	}
 
 	err = database.DeleteTargetDatabaseResource(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete target database resource", "error", err)
-		os.Exit(16)
+		os.Exit(17)
 	}
 
 	err = instance.WaitForCnrmResourcesToGoAway(ctx, cfg.TargetInstance.Name, mgr)
 	if err != nil {
 		mgr.Logger.Error("helper instance definition is stuck", "error", err)
-		os.Exit(17)
+		os.Exit(18)
 	}
 
 	app, err = application.UpdateApplicationInstance(ctx, cfg, &cfg.TargetInstance, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application", "error", err)
-		os.Exit(18)
+		os.Exit(19)
 	}
 
 	target, err = resolved.ResolveInstance(ctx, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve updated target", "error", err)
-		os.Exit(19)
+		os.Exit(20)
 	}
 
 	err = application.UpdateApplicationUser(ctx, target, gcpProject, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to update application user", "error", err)
-		os.Exit(20)
+		os.Exit(21)
 	}
 
 	err = backup.CreateBackup(ctx, cfg, target.Name, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
-		os.Exit(21)
+		os.Exit(22)
 	}
 
 	mgr.Logger.Info("promote completed")

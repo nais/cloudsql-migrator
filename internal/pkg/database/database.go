@@ -264,8 +264,8 @@ func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, target *reso
 
 	logger.Info("reassigning ownership from cloudsqlexternalsync to app user", "database", databaseName, "user", target.AppUsername)
 
-	_, err = dbConn.ExecContext(ctx, "GRANT cloudsqlexternalsync to \""+target.AppUsername+"\";"+
-		"REASSIGN OWNED BY cloudsqlexternalsync to \""+target.AppUsername+"\";")
+	_, err = dbConn.ExecContext(ctx, "GRANT cloudsqlexternalsync to cloudsqlsuperuser;"+
+		"REASSIGN OWNED BY cloudsqlexternalsync to cloudsqlsuperuser;")
 	if err != nil {
 		return err
 	}
