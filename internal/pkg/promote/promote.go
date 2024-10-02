@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/nais/cloudsql-migrator/internal/pkg/migration"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
+	"github.com/nais/cloudsql-migrator/internal/pkg/migration"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"google.golang.org/api/datamigration/v1"
 	"google.golang.org/api/iterator"
@@ -27,6 +27,11 @@ func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instan
 	migrationJob, err := migration.GetMigrationJob(ctx, migrationName, gcpProject, mgr)
 	if err != nil {
 		return err
+	}
+
+	if migrationJob.State == "COMPLETED" {
+		mgr.Logger.Info("migration job is already completed, continuing...", "migrationName", migrationName)
+		return nil
 	}
 
 	if migrationJob.State != "RUNNING" {
