@@ -119,7 +119,9 @@ func main() {
 			mgr.Logger.Error("failed to delete helper application", "error", err)
 			os.Exit(15)
 		}
-	} else if !errors.IsNotFound(err) {
+	} else if errors.IsNotFound(err) {
+		mgr.Logger.Info("helper application is gone, skipping previously completed steps")
+	} else {
 		mgr.Logger.Error("failed to get helper application", "error", err)
 		os.Exit(16)
 	}
