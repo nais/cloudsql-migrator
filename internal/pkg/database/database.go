@@ -140,7 +140,7 @@ func SetDatabasePassword(ctx context.Context, instance string, userName string, 
 		if err != nil {
 			var ae *googleapi.Error
 			if errors.As(err, &ae) && ae.Code == http.StatusConflict {
-				mgr.Logger.Warn("user not found, retrying", "user", user.Name)
+				mgr.Logger.Warn("conflict while updating user, retrying", "user", user.Name)
 				return nil, retry.RetryableError(err)
 			}
 			return nil, fmt.Errorf("failed to update Cloud SQL user password: %w", err)
