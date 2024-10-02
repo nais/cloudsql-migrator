@@ -222,7 +222,7 @@ func WaitForCnrmResourcesToGoAway(ctx context.Context, instanceName, application
 	logger := mgr.Logger.With("instance_name", instanceName)
 	logger.Info("waiting for relevant CNRM resources to go away...")
 
-	type resource[ struct {
+	type resource struct {
 		kind   string
 		getter func() (metav1.Object, error)
 	}
@@ -239,7 +239,7 @@ func WaitForCnrmResourcesToGoAway(ctx context.Context, instanceName, application
 		},
 		{
 			"SQLUser",
-			func() (metav1.Object, error){
+			func() (metav1.Object, error) {
 				user, err := mgr.SqlUserClient.Get(ctx, instanceName)
 				if err != nil {
 					return nil, err
