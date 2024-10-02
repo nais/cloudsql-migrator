@@ -15,6 +15,7 @@ import (
 	"github.com/nais/cloudsql-migrator/internal/pkg/promote"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
 	"github.com/sethvargo/go-envconfig"
+	"k8s.io/apimachinery/pkg/api/errors"
 )
 
 func main() {
@@ -70,56 +71,56 @@ func main() {
 
 	mgr.Logger.Info("getting helper application", "name", helperName)
 	helperApp, err := mgr.AppClient.Get(ctx, helperName)
-	if err != nil {
+	if err == nil {
+		target, err := resolved.ResolveInstance(ctx, helperApp, mgr)
+		if err != nil {
+			mgr.Logger.Error("failed to resolve target", "error", err)
+			os.Exit(8)
+		}
+
+		err = promote.CheckReadyForPromotion(ctx, source, target, gcpProject, mgr)
+		if err != nil {
+			mgr.Logger.Error("migration is not ready for promotion", "error", err)
+			os.Exit(9)
+		}
+
+		err = application.ScaleApplication(ctx, cfg, mgr, 0)
+		if err != nil {
+			mgr.Logger.Error("failed to scale application", "error", err)
+			os.Exit(10)
+		}
+
+		err = promote.Promote(ctx, source, target, gcpProject, mgr)
+		if err != nil {
+			mgr.Logger.Error("failed to promote", "error", err)
+			os.Exit(11)
+		}
+
+		certPaths, err := database.PrepareTargetDatabase(ctx, cfg, target, gcpProject, mgr)
+		if err != nil {
+			mgr.Logger.Error("failed to prepare target database", "error", err)
+			os.Exit(12)
+		}
+
+		err = database.ChangeOwnership(ctx, mgr, target, config.PostgresDatabaseName, certPaths)
+		if err != nil {
+			mgr.Logger.Error("failed to change ownership for database", "databaseName", config.PostgresDatabaseName, "error", err)
+			os.Exit(13)
+		}
+
+		err = database.ChangeOwnership(ctx, mgr, target, databaseName, certPaths)
+		if err != nil {
+			mgr.Logger.Error("failed to change ownership for database", "databaseName", databaseName, "error", err)
+			os.Exit(14)
+		}
+
+		err = application.DeleteHelperApplication(ctx, cfg, mgr)
+		if err != nil {
+			mgr.Logger.Error("failed to delete helper application", "error", err)
+			os.Exit(15)
+		}
+	} else if !errors.IsNotFound(err) {
 		mgr.Logger.Error("failed to get helper application", "error", err)
-		os.Exit(8)
-	}
-
-	target, err := resolved.ResolveInstance(ctx, helperApp, mgr)
-	if err != nil {
-		mgr.Logger.Error("failed to resolve target", "error", err)
-		os.Exit(9)
-	}
-
-	err = promote.CheckReadyForPromotion(ctx, source, target, gcpProject, mgr)
-	if err != nil {
-		mgr.Logger.Error("migration is not ready for promotion", "error", err)
-		os.Exit(10)
-	}
-
-	err = application.ScaleApplication(ctx, cfg, mgr, 0)
-	if err != nil {
-		mgr.Logger.Error("failed to scale application", "error", err)
-		os.Exit(11)
-	}
-
-	err = promote.Promote(ctx, source, target, gcpProject, mgr)
-	if err != nil {
-		mgr.Logger.Error("failed to promote", "error", err)
-		os.Exit(12)
-	}
-
-	certPaths, err := database.PrepareTargetDatabase(ctx, cfg, target, gcpProject, mgr)
-	if err != nil {
-		mgr.Logger.Error("failed to prepare target database", "error", err)
-		os.Exit(13)
-	}
-
-	err = database.ChangeOwnership(ctx, mgr, target, config.PostgresDatabaseName, certPaths)
-	if err != nil {
-		mgr.Logger.Error("failed to change ownership for database", "databaseName", config.PostgresDatabaseName, "error", err)
-		os.Exit(14)
-	}
-
-	err = database.ChangeOwnership(ctx, mgr, target, databaseName, certPaths)
-	if err != nil {
-		mgr.Logger.Error("failed to change ownership for database", "databaseName", databaseName, "error", err)
-		os.Exit(15)
-	}
-
-	err = application.DeleteHelperApplication(ctx, cfg, mgr)
-	if err != nil {
-		mgr.Logger.Error("failed to delete helper application", "error", err)
 		os.Exit(16)
 	}
 
@@ -141,7 +142,7 @@ func main() {
 		os.Exit(19)
 	}
 
-	target, err = resolved.ResolveInstance(ctx, app, mgr)
+	target, err := resolved.ResolveInstance(ctx, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve updated target", "error", err)
 		os.Exit(20)
