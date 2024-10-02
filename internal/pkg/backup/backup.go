@@ -2,12 +2,17 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/resolved"
+	"github.com/sethvargo/go-retry"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/sqladmin/v1"
-	"time"
 )
 
 func CreateBackup(ctx context.Context, cfg *config.Config, name string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
@@ -26,7 +31,23 @@ func CreateBackup(ctx context.Context, cfg *config.Config, name string, gcpProje
 	backupRun := &sqladmin.BackupRun{
 		Description: "Pre-migration backup",
 	}
-	op, err := backupRunsService.Insert(gcpProject.Id, name, backupRun).Context(ctx).Do()
+
+	b := retry.NewConstant(5 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
+
+	op, err := retry.DoValue(ctx, b, func(ctx context.Context) (*sqladmin.Operation, error) {
+		op, err := backupRunsService.Insert(gcpProject.Id, name, backupRun).Context(ctx).Do()
+		if err != nil {
+			var ae *googleapi.Error
+			if errors.As(err, &ae) && ae.Code == http.StatusConflict {
+				mgr.Logger.Warn("another operation is in progress, retrying", "error", err)
+				return nil, retry.RetryableError(err)
+			}
+
+			return nil, err
+		}
+		return op, nil
+	})
 	if err != nil {
 		return fmt.Errorf("failed to create backup: %w", err)
 	}
