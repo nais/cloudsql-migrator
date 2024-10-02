@@ -218,27 +218,33 @@ func WaitForSQLDatabaseResourceToGoAway(ctx context.Context, appName string, mgr
 	return err
 }
 
-func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_main.Manager) error {
-	logger := mgr.Logger.With("instance_name", name)
+func WaitForCnrmResourcesToGoAway(ctx context.Context, instanceName, applicationName string, mgr *common_main.Manager) error {
+	logger := mgr.Logger.With("instance_name", instanceName)
 	logger.Info("waiting for relevant CNRM resources to go away...")
 
-	type resource struct {
+	type resource[ struct {
 		kind   string
-		getter func() error
+		getter func() (metav1.Object, error)
 	}
 	resources := []resource{
 		{
 			"SQLInstance",
-			func() error {
-				_, err := mgr.SqlInstanceClient.Get(ctx, name)
-				return err
+			func() (metav1.Object, error) {
+				instance, err := mgr.SqlInstanceClient.Get(ctx, instanceName)
+				if err != nil {
+					return nil, err
+				}
+				return instance.GetObjectMeta(), nil
 			},
 		},
 		{
 			"SQLUser",
-			func() error {
-				_, err := mgr.SqlUserClient.Get(ctx, name)
-				return err
+			func() (metav1.Object, error){
+				user, err := mgr.SqlUserClient.Get(ctx, instanceName)
+				if err != nil {
+					return nil, err
+				}
+				return user.GetObjectMeta(), nil
 			},
 		},
 	}
@@ -251,8 +257,15 @@ func WaitForCnrmResourcesToGoAway(ctx context.Context, name string, mgr *common_
 			b = retry.WithMaxDuration(5*time.Minute, b)
 
 			err := retry.Do(ctx, b, func(ctx context.Context) error {
-				err := r.getter()
+				obj, err := r.getter()
 				if err == nil {
+					for _, ref := range obj.GetOwnerReferences() {
+						if ref.Name == applicationName {
+							logger.Info("resource already transferred to target application", "kind", r.kind)
+							return nil
+						}
+					}
+
 					logger.Info("waiting for resource to go away...", "kind", r.kind)
 					return retry.RetryableError(errors.New("resource still exists"))
 				}
