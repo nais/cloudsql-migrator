@@ -29,6 +29,11 @@ func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instan
 		return err
 	}
 
+	if migrationJob.Phase == "PROMOTE_IN_PROGRESS" {
+		mgr.Logger.Info("migration job is already under promotion, continuing...", "migrationName", migrationName)
+		return nil
+	}
+
 	if migrationJob.State == "COMPLETED" {
 		mgr.Logger.Info("migration job is already completed, continuing...", "migrationName", migrationName)
 		return nil
