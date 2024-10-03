@@ -12,7 +12,8 @@ type Logging struct {
 
 func SetupLogging(conf *Config) *slog.Logger {
 	opts := &slog.HandlerOptions{
-		Level: conf.Logging.Level,
+		Level:     conf.Logging.Level,
+		AddSource: true,
 	}
 	var handler slog.Handler
 	if conf.Logging.Format == "JSON" {
