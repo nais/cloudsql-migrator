@@ -38,7 +38,7 @@ func main() {
 
 	// The migrationStepsTotal must be updated if the number of steps in the setup process changes
 	// Used by nais-cli to show progressbar
-	mgr.Logger.Info("Setup started", "config", cfg, "migrationStepsTotal", 14)
+	mgr.Logger.Info("Setup started", "config", cfg, "migrationStepsTotal", 15)
 
 	mgr.Logger.Info("Resolving GCP project ID", "migrationStep", 1)
 	gcpProject, err := resolved.ResolveGcpProject(ctx, cfg, mgr)
@@ -143,5 +143,5 @@ func main() {
 		os.Exit(17)
 	}
 
-	mgr.Logger.Info("Setup completed")
+	mgr.Logger.Info("Setup completed", "migrationStep", 15)
 }

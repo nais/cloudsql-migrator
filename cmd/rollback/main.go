@@ -37,7 +37,7 @@ func main() {
 
 	// The migrationStepsTotal must be updated if the number of steps in the rollback process changes
 	// Used by nais-cli to show progressbar
-	mgr.Logger.Info("Rollback started", "config", cfg, "migrationStepsTotal", 16)
+	mgr.Logger.Info("Rollback started", "config", cfg, "migrationStepsTotal", 17)
 
 	mgr.Logger.Info("Getting application", "name", cfg.ApplicationName, "migrationStep", 1)
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
@@ -165,5 +165,5 @@ func main() {
 		os.Exit(19)
 	}
 
-	mgr.Logger.Info("Rollback completed")
+	mgr.Logger.Info("Rollback completed", "migrationStep", 17)
 }
