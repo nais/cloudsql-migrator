@@ -36,20 +36,25 @@ func main() {
 		os.Exit(2)
 	}
 
-	mgr.Logger.Info("setup started", "config", cfg)
+	// The migrationStepsTotal must be updated if the number of steps in the setup process changes
+	// Used by nais-cli to show progressbar
+	mgr.Logger.Info("Setup started", "config", cfg, "migrationStepsTotal", 14)
 
+	mgr.Logger.Info("Resolving GCP project ID", "migrationStep", 1)
 	gcpProject, err := resolved.ResolveGcpProject(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve GCP project ID", "error", err)
 		os.Exit(3)
 	}
 
+	mgr.Logger.Info("Getting application", "migrationStep", 2)
 	app, err := mgr.AppClient.Get(ctx, cfg.ApplicationName)
 	if err != nil {
 		mgr.Logger.Error("failed to get application", "error", err)
 		os.Exit(4)
 	}
 
+	mgr.Logger.Info("Resolving source instance", "migrationStep", 3)
 	source, err := resolved.ResolveInstance(ctx, app, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve source", "error", err)
@@ -61,71 +66,82 @@ func main() {
 		os.Exit(6)
 	}
 
+	mgr.Logger.Info("Resolving database name", "migrationStep", 4)
 	databaseName, err := resolved.ResolveDatabaseName(app)
 	if err != nil {
 		mgr.Logger.Error("failed to resolve database name", "error", err)
 		os.Exit(7)
 	}
 
+	mgr.Logger.Info("Creating target instance", "migrationStep", 5)
 	target, err := instance.CreateInstance(ctx, cfg, source, gcpProject, databaseName, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to create target instance", "error", err)
 		os.Exit(8)
 	}
 
+	mgr.Logger.Info("Deleting database from intended target instance", "migrationStep", 6)
 	err = database.DeleteHelperTargetDatabase(ctx, cfg, target, databaseName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to delete database from intended target instance", "error", err)
 		os.Exit(9)
 	}
 
+	mgr.Logger.Info("Creating backup", "migrationStep", 7)
 	err = backup.CreateBackup(ctx, cfg, source.Name, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("Failed to create backup", "error", err)
 		os.Exit(10)
 	}
 
+	mgr.Logger.Info("Disabling cascading delete", "migrationStep", 8)
 	err = application.DisableCascadingDelete(ctx, cfg, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to disable cascading delete", "error", err)
 		os.Exit(11)
 	}
 
+	mgr.Logger.Info("Creating network policy", "migrationStep", 9)
 	err = netpol.CreateNetworkPolicy(ctx, cfg, source, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to create network policy", "error", err)
 		os.Exit(12)
 	}
 
+	mgr.Logger.Info("Preparing source instance", "migrationStep", 10)
 	err = instance.PrepareSourceInstance(ctx, source, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source instance", "error", err)
 		os.Exit(13)
 	}
 
+	mgr.Logger.Info("Preparing source database", "migrationStep", 11)
 	err = database.PrepareSourceDatabase(ctx, cfg, source, databaseName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source database", "error", err)
 		os.Exit(14)
 	}
 
+	mgr.Logger.Info("Preparing target instance", "migrationStep", 12)
 	err = instance.PrepareTargetInstance(ctx, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare target instance", "error", err)
 		os.Exit(15)
 	}
 
+	mgr.Logger.Info("Preparing target database", "migrationStep", 13)
 	_, err = database.PrepareTargetDatabase(ctx, cfg, target, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare target database", "error", err)
 		os.Exit(16)
 	}
 
+	mgr.Logger.Info("Setting up migration", "migrationStep", 14)
 	err = migration.SetupMigration(ctx, cfg, gcpProject, source, target, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to setup migration", "error", err)
 		os.Exit(17)
 	}
 
-	mgr.Logger.Info("setup completed")
+	mgr.Logger.Info("Setup completed")
 }
