@@ -66,7 +66,7 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Man
 		if err != nil {
 			return nil, err
 		}
-		logger.Info("Waiting for SQLSSLCert to be ready")
+		logger.Info("waiting for SQLSSLCert to be ready")
 	}
 
 	sslCert.SslCaCert = *sqlSslCert.Status.ServerCaCert

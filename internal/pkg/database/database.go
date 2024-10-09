@@ -178,12 +178,11 @@ func getSqlUser(ctx context.Context, instance string, userName string, gcpProjec
 		if err != nil {
 			var ae *googleapi.Error
 			if errors.As(err, &ae) && ae.Code == http.StatusNotFound {
-				mgr.Logger.Warn("user not found, retrying")
+				mgr.Logger.Warn("user not found, retrying", "user", userName)
 				return nil, retry.RetryableError(err)
 			}
 			return nil, err
 		}
-		mgr.Logger.Info("got Cloud SQL user", "user", userName)
 		return user, nil
 	})
 	if err != nil {
