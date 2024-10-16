@@ -3,8 +3,9 @@ package migration
 import (
 	"context"
 	"fmt"
-	"github.com/sethvargo/go-retry"
 	"time"
+
+	"github.com/sethvargo/go-retry"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
@@ -190,7 +191,6 @@ func GetMigrationJob(ctx context.Context, migrationName string, gcpProject *reso
 	migrationJob, err := retry.DoValue(ctx, b, func(ctx context.Context) (*datamigration.MigrationJob, error) {
 		migrationJob, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Get(gcpProject.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
 		if err != nil {
-			mgr.Logger.Warn("failed to get migration job, retrying", "error", err)
 			return nil, retry.RetryableError(fmt.Errorf("failed to get migration job: %w", err))
 		}
 
