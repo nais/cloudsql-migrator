@@ -132,6 +132,8 @@ github.com/GoogleCloudPlatform/k8s-config-connector v1.122.0 h1:jfZizxEBG/8vBzmF
 github.com/GoogleCloudPlatform/k8s-config-connector v1.122.0/go.mod h1:efBoVzsYQ80GocA02dOOkggBUrn5M/wPNLv41/AhBJA=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.123.1 h1:xQMxaFKfq5mLUqXJUOmpT7lGuBCB5n9Muwi08GNfaXc=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.123.1/go.mod h1:aXJdalPRKo5uLYp3I8h2kkVm+pZ6sBNk/2aRrggN6PI=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.124.0 h1:PD/uvvU8lqsj23FPYF5EvAV3O6enNeoB5HhE9Ix3AZI=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.124.0/go.mod h1:Rgm2TLgSnXVCrgIfJIizeMda37DwPQ+XhQgSgJ3L9dY=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
