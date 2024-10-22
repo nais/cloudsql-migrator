@@ -121,6 +121,12 @@ func DefineInstance(instanceSettings *config.InstanceSettings, app *nais_io_v1al
 	if instanceSettings.DiskSize != 0 {
 		instance.DiskSize = instanceSettings.DiskSize
 	}
+	if instanceSettings.DiskAutoresize != nil {
+		instance.DiskAutoresize = *instanceSettings.DiskAutoresize
+	}
+	if instance.DiskAutoresize {
+		instance.DiskSize = 0
+	}
 	if instanceSettings.Type != "" {
 		instance.Type = nais_io_v1.CloudSqlInstanceType(instanceSettings.Type)
 	}

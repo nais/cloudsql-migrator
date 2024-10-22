@@ -8,10 +8,11 @@ const (
 )
 
 type InstanceSettings struct {
-	Name     string `env:"NAME, required"`
-	Type     string `env:"TYPE"`
-	Tier     string `env:"TIER"`
-	DiskSize int    `env:"DISK_SIZE"`
+	Name           string `env:"NAME, required"`
+	Type           string `env:"TYPE"`
+	Tier           string `env:"TIER"`
+	DiskSize       int    `env:"DISK_SIZE"`
+	DiskAutoresize *bool  `env:"DISK_AUTORESIZE, noinit"`
 }
 
 type Config struct {
