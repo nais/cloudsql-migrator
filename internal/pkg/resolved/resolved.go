@@ -99,7 +99,7 @@ func resolveInstanceName(app *nais_io_v1alpha1.Application) (string, error) {
 	spec := app.Spec
 	if spec.GCP != nil {
 		gcp := spec.GCP
-		if gcp.SqlInstances != nil && len(gcp.SqlInstances) == 1 {
+		if len(gcp.SqlInstances) == 1 {
 			instance := gcp.SqlInstances[0]
 			if len(instance.Name) > 0 {
 				return instance.Name, nil
@@ -203,7 +203,7 @@ func ResolveDatabaseName(app *nais_io_v1alpha1.Application) (string, error) {
 	spec := app.Spec
 	if spec.GCP != nil {
 		gcp := spec.GCP
-		if gcp.SqlInstances != nil && len(gcp.SqlInstances) == 1 && len(gcp.SqlInstances[0].Databases) == 1 {
+		if len(gcp.SqlInstances) == 1 && len(gcp.SqlInstances[0].Databases) == 1 {
 			database := gcp.SqlInstances[0].Databases[0]
 			if len(database.Name) > 0 {
 				return database.Name, nil

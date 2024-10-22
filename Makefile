@@ -18,3 +18,7 @@ finalize:
 
 rollback:
 	go build -installsuffix cgo -o bin/rollback cmd/rollback/main.go
+
+check:
+	go run honnef.co/go/tools/cmd/staticcheck ./...
+	go run golang.org/x/vuln/cmd/govulncheck ./...

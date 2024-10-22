@@ -20,7 +20,7 @@ RUN go build std
 COPY . .
 
 # Run tests
-RUN make test
+RUN make test && make check
 
 # Build
 RUN CGO_ENABLED=0 make all

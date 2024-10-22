@@ -3,6 +3,7 @@ package instance
 import (
 	"context"
 	"fmt"
+	"google.golang.org/api/sqladmin/v1"
 	"os"
 	"time"
 
@@ -127,7 +128,11 @@ func DeleteSslCertByCommonName(ctx context.Context, instanceName, commonName str
 	for _, item := range listResponse.Items {
 		if item.CommonName == commonName {
 			mgr.Logger.Info("deleting ssl certificate", "commonName", commonName)
-			op, err := sslCertsService.Delete(gcpProject.Id, instanceName, item.Sha1Fingerprint).Context(ctx).Do()
+			var op *sqladmin.Operation
+			op, err = sslCertsService.Delete(gcpProject.Id, instanceName, item.Sha1Fingerprint).Context(ctx).Do()
+			if err != nil {
+				return fmt.Errorf("failed to delete ssl cert: %w", err)
+			}
 			for op.Status != "DONE" {
 				time.Sleep(1 * time.Second)
 				op, err = operationsService.Get(gcpProject.Id, op.Name).Context(ctx).Do()
