@@ -19,7 +19,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/nais/liberator v0.0.0-20240508112139-876aae49c479
 	github.com/onsi/ginkgo/v2 v2.20.2
-	github.com/onsi/gomega v1.34.1
+	github.com/onsi/gomega v1.34.2
 	github.com/sethvargo/go-envconfig v1.1.0
 	github.com/sethvargo/go-retry v0.3.0
 	golang.org/x/sync v0.8.0
