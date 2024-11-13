@@ -32,6 +32,8 @@ github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c h1:pxW6RcqyfI9/k
 github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.124.0 h1:PD/uvvU8lqsj23FPYF5EvAV3O6enNeoB5HhE9Ix3AZI=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.124.0/go.mod h1:Rgm2TLgSnXVCrgIfJIizeMda37DwPQ+XhQgSgJ3L9dY=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.125.0 h1:oGWpJITjVgJ+ocATyf6BedTwK5tJ5KuOe+yhOyQ+oFU=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.125.0/go.mod h1:RX/TZs88Bbp3verrymNfRUnrNUYx9goLY5dMh0yqLjc=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
