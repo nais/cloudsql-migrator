@@ -25,7 +25,7 @@ require (
 	golang.org/x/sync v0.10.0
 	golang.org/x/vuln v1.1.3
 	google.golang.org/api v0.213.0
-	google.golang.org/grpc v1.69.0
+	google.golang.org/grpc v1.69.2
 	honnef.co/go/tools v0.5.1
 	k8s.io/api v0.31.4
 	k8s.io/apimachinery v0.31.4
