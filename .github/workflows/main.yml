@@ -5,6 +5,9 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  workflow_dispatch:
+  schedule:
+    - cron: '51 18 * * 4'
   push:
     paths-ignore:
       - '*.md'
