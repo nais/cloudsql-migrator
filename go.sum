@@ -14,6 +14,8 @@ cloud.google.com/go/longrunning v0.6.2 h1:xjDfh1pQcWPEvnfjZmwjKQEcHnpz6lHjfy7Fo0
 cloud.google.com/go/longrunning v0.6.2/go.mod h1:k/vIs83RN4bE3YCswdXC5PFfWVILjm3hpEUlSko4PiI=
 cloud.google.com/go/monitoring v1.22.0 h1:mQ0040B7dpuRq1+4YiQD43M2vW9HgoVxY98xhqGT+YI=
 cloud.google.com/go/monitoring v1.22.0/go.mod h1:hS3pXvaG8KgWTSz+dAdyzPrGUYmi2Q+WFX8g2hqVEZU=
+cloud.google.com/go/monitoring v1.22.1 h1:KQbnAC4IAH+5x3iWuPZT5iN9VXqKMzzOgqcYB6fqPDE=
+cloud.google.com/go/monitoring v1.22.1/go.mod h1:AuZZXAoN0WWWfsSvET1Cpc4/1D8LXq8KRDU87fMS6XY=
 github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c h1:pxW6RcqyfI9/kWtOwnv/G+AzdKuy2ZrqINhenH4HyNs=
 github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.127.0 h1:dwRdvrHg4sYFLSFJ/dO8u+5i6OBVTQbRbYnzyEgSH6E=
