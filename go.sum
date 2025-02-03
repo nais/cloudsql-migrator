@@ -22,6 +22,8 @@ github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c h1:pxW6RcqyfI9/k
 github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.127.0 h1:dwRdvrHg4sYFLSFJ/dO8u+5i6OBVTQbRbYnzyEgSH6E=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.127.0/go.mod h1:dwXbm8gE0B2ZiMr7JgsN9ScYan+axQoWaZHGYGaV6LM=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.128.0 h1:AS9xEfy/bhzMclMNiUw4+1t8K6VoBxNHyxgBqws/1g4=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.128.0/go.mod h1:6e84V8NOA89icS5Vb9hdQj+hUXP0zXur2M2vP7Pvz74=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
