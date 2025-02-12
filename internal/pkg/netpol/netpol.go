@@ -3,6 +3,8 @@ package netpol
 import (
 	"context"
 	"fmt"
+	"github.com/nais/liberator/pkg/namegen"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"os"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -20,9 +22,20 @@ func CreateNetworkPolicy(ctx context.Context, cfg *config.Config, source *resolv
 		return nil
 	}
 
+	var err error
+
+	name := fmt.Sprintf("migration-%s-%s", cfg.ApplicationName, target.Name)
+	maxlen := validation.DNS1123LabelMaxLength
+	if len(name) > maxlen {
+		name, err = namegen.ShortName(name, maxlen)
+		if err != nil {
+			return fmt.Errorf("BUG: generating netpol name: %w", err)
+		}
+	}
+
 	netpol := &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("migration-%s-%s", cfg.ApplicationName, target.Name),
+			Name:      name,
 			Namespace: cfg.Namespace,
 			Labels: map[string]string{
 				"app":                       cfg.ApplicationName,
@@ -52,7 +65,7 @@ func CreateNetworkPolicy(ctx context.Context, cfg *config.Config, source *resolv
 	}
 
 	mgr.Logger.Info("creating network policy", "name", netpol.Name)
-	_, err := mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Create(ctx, netpol, metav1.CreateOptions{})
+	_, err = mgr.K8sClient.NetworkingV1().NetworkPolicies(cfg.Namespace).Create(ctx, netpol, metav1.CreateOptions{})
 	if err != nil {
 		if k8s_errors.IsAlreadyExists(err) {
 			mgr.Logger.Info("network policy already exists, updating", "name", netpol.Name)
