@@ -458,21 +458,32 @@ func UpdateTargetInstanceAfterPromotion(ctx context.Context, target *resolved.In
 func DeleteInstance(ctx context.Context, instanceName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
 	instancesService := mgr.SqlAdminService.Instances
 
-	mgr.Logger.Info("checking for instance existence before deletion", "name", instanceName)
-	_, err := instancesService.Get(gcpProject.Id, instanceName).Context(ctx).Do()
-	if err != nil {
-		var ae *googleapi.Error
-		if errors.As(err, &ae) && ae.Code == http.StatusNotFound {
-			mgr.Logger.Info("instance not found, skipping deletion")
-			return nil
-		}
-		return fmt.Errorf("failed to get instance: %w", err)
-	}
+	b := retry.NewConstant(10 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
 
-	mgr.Logger.Info("deleting instance", "name", instanceName)
-	_, err = instancesService.Delete(gcpProject.Id, instanceName).Context(ctx).Do()
+	err := retry.Do(ctx, b, func(ctx context.Context) error {
+		mgr.Logger.Info("checking for instance existence before deletion", "name", instanceName)
+		_, err := instancesService.Get(gcpProject.Id, instanceName).Context(ctx).Do()
+		if err != nil {
+			var ae *googleapi.Error
+			if errors.As(err, &ae) && ae.Code == http.StatusNotFound {
+				mgr.Logger.Info("instance not found, skipping deletion")
+				return nil
+			}
+			mgr.Logger.Warn("failed to get instance, retrying", "error", err)
+			return retry.RetryableError(fmt.Errorf("failed to get instance: %w", err))
+		}
+
+		mgr.Logger.Info("deleting instance", "name", instanceName)
+		_, err = instancesService.Delete(gcpProject.Id, instanceName).Context(ctx).Do()
+		if err != nil {
+			mgr.Logger.Warn("failed to delete instance, retrying", "error", err)
+			return retry.RetryableError(fmt.Errorf("failed to delete instance: %w", err))
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to delete instance: %w", err)
+		return err
 	}
 	return nil
 }
