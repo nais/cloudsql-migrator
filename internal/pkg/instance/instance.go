@@ -147,13 +147,15 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, targe
 			return retry.RetryableError(err)
 		}
 
-		authNetwork := v1beta1.InstanceAuthorizedNetworks{
-			Name:  &target.Name,
-			Value: fmt.Sprintf("%s/32", target.OutgoingIp),
+		for idx, ip := range target.OutgoingIps {
+			authNetwork := v1beta1.InstanceAuthorizedNetworks{
+				Name:  ptr.To(fmt.Sprintf("%s-%d", target.Name, idx)),
+				Value: fmt.Sprintf("%s/32", ip),
+			}
+			sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
 		}
-		sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
 
-		authNetwork, err = createMigratorAuthNetwork()
+		authNetwork, err := createMigratorAuthNetwork()
 		if err != nil {
 			return err
 		}

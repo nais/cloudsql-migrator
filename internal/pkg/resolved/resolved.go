@@ -28,7 +28,7 @@ type SslCert struct {
 type Instance struct {
 	Name             string
 	PrimaryIp        string
-	OutgoingIp       string
+	OutgoingIps      []string
 	AppUsername      string
 	AppPassword      string
 	PostgresPassword string
@@ -192,7 +192,7 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 	instance.PrimaryIp = *sqlInstance.Status.PublicIpAddress
 	for _, ip := range sqlInstance.Status.IpAddress {
 		if *ip.Type == "OUTGOING" {
-			instance.OutgoingIp = *ip.IpAddress
+			instance.OutgoingIps = append(instance.OutgoingIps, *ip.IpAddress)
 		}
 	}
 
