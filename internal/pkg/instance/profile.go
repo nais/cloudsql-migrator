@@ -61,7 +61,7 @@ func createConnectionProfiles(ctx context.Context, cps map[string]*clouddmspb.Co
 		}
 
 		if err != nil {
-			mgr.Logger.Error("failed to create connection profile", "error", err)
+			mgr.Logger.Error("failed to create connection profile", "name", profileName, "error", err)
 			return err
 		}
 
