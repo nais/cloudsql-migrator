@@ -46,6 +46,21 @@ type GcpProject struct {
 	Id string
 }
 
+type Require int
+
+const (
+	RequireOutgoingIp Require = iota
+)
+
+func (r Require) In(required []Require) bool {
+	for _, req := range required {
+		if req == r {
+			return true
+		}
+	}
+	return false
+}
+
 func ResolveGcpProject(ctx context.Context, cfg *config.Config, mgr *common_main.Manager) (*GcpProject, error) {
 	mgr.Logger.Info("resolving google project id", "namespace", cfg.Namespace)
 	ns, err := mgr.K8sClient.CoreV1().Namespaces().Get(ctx, cfg.Namespace, meta_v1.GetOptions{})
@@ -110,7 +125,7 @@ func resolveInstanceName(app *nais_io_v1alpha1.Application) (string, error) {
 	return "", fmt.Errorf("application does not have sql instance")
 }
 
-func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr *common_main.Manager) (*Instance, error) {
+func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr *common_main.Manager, required ...Require) (*Instance, error) {
 	name, err := resolveInstanceName(app)
 	if err != nil {
 		return nil, err
@@ -163,8 +178,11 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 		sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, instance.Name)
 		if err != nil {
 			if errors.IsNotFound(err) {
+				mgr.Logger.Info("sql instance not found, retrying", "instance", instance.Name)
 				return nil, retry.RetryableError(fmt.Errorf("sql instance not found, retrying: %w", err))
 			}
+			mgr.Logger.Info("unable to get sql instance, retrying", "instance", instance.Name)
+			return nil, retry.RetryableError(fmt.Errorf("unable to get sql instance, retrying: %w", err))
 		}
 
 		conditionsNotEmpty := len(sqlInstance.Status.Conditions) > 0
@@ -179,7 +197,8 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 				return sqlInstance, nil
 			}
 		}
-		return sqlInstance, retry.RetryableError(fmt.Errorf("sql instance not ready, retrying"))
+		mgr.Logger.Info("sql instance not ready, retrying")
+		return nil, retry.RetryableError(fmt.Errorf("sql instance not ready, retrying"))
 	})
 	if err != nil {
 		return nil, err
@@ -190,13 +209,47 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 		return nil, fmt.Errorf("sql instance %s does not have public ip address", instance.Name)
 	}
 	instance.PrimaryIp = *sqlInstance.Status.PublicIpAddress
-	for _, ip := range sqlInstance.Status.IpAddress {
-		if *ip.Type == "OUTGOING" {
-			instance.OutgoingIps = append(instance.OutgoingIps, *ip.IpAddress)
-		}
+
+	err = resolveOutgoingIps(ctx, instance, mgr, RequireOutgoingIp.In(required))
+	if err != nil {
+		return nil, err
 	}
 
 	return instance, nil
+}
+
+func resolveOutgoingIps(ctx context.Context, instance *Instance, mgr *common_main.Manager, required bool) error {
+	b := retry.NewConstant(30 * time.Second)
+	b = retry.WithMaxDuration(15*time.Minute, b)
+
+	outgoingIps, err := retry.DoValue(ctx, b, func(ctx context.Context) ([]string, error) {
+		sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, instance.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				mgr.Logger.Info("sql instance not found, retrying", "instance", instance.Name)
+				return nil, retry.RetryableError(fmt.Errorf("sql instance not found: %w", err))
+			}
+			mgr.Logger.Info("unable to get sql instance, retrying", "instance", instance.Name)
+			return nil, retry.RetryableError(fmt.Errorf("unable to get sql instance: %w", err))
+		}
+
+		outgoingIps := make([]string, 0, 2)
+		for _, ip := range sqlInstance.Status.IpAddress {
+			if *ip.Type == "OUTGOING" {
+				outgoingIps = append(instance.OutgoingIps, *ip.IpAddress)
+			}
+		}
+		if !required || len(outgoingIps) > 0 {
+			return outgoingIps, nil
+		}
+		mgr.Logger.Info("sql instance does not have required outgoing ip addresses, waiting some more", "instance", instance.Name)
+		return nil, retry.RetryableError(fmt.Errorf("sql instance %s does not have required outgoing ip addresses", instance.Name))
+	})
+	if err != nil {
+		return err
+	}
+	instance.OutgoingIps = outgoingIps
+	return nil
 }
 
 func ResolveDatabaseName(app *nais_io_v1alpha1.Application) (string, error) {

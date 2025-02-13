@@ -18,38 +18,34 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func SetupMigration(ctx context.Context, cfg *config.Config, gcpProject *resolved.GcpProject, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
+func PrepareMigrationJob(ctx context.Context, cfg *config.Config, gcpProject *resolved.GcpProject, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) (string, error) {
 	migrationName, err := resolved.MigrationName(source.Name, target.Name)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = DeleteMigrationJob(ctx, migrationName, gcpProject, mgr)
 	if err != nil {
+		return "", err
 	}
 
 	err = instance.CreateConnectionProfiles(ctx, cfg, gcpProject, source, target, mgr)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	migrationJob, err := createMigrationJob(ctx, migrationName, cfg, gcpProject, mgr)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	migrationJobName := migrationJob.Name
 	err = demoteTargetInstance(ctx, migrationJobName, mgr)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	err = startMigrationJob(ctx, migrationJobName, mgr)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return migrationJobName, err
 }
 
 func DeleteMigrationJob(ctx context.Context, migrationName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
@@ -153,7 +149,7 @@ func createMigrationJob(ctx context.Context, migrationName string, cfg *config.C
 	return migrationJob, nil
 }
 
-func startMigrationJob(ctx context.Context, migrationJobName string, mgr *common_main.Manager) error {
+func StartMigrationJob(ctx context.Context, migrationJobName string, mgr *common_main.Manager) error {
 	logger := mgr.Logger.With("migrationJobName", migrationJobName)
 	logger.Info("starting migration job")
 

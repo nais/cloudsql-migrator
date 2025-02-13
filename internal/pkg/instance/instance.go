@@ -134,7 +134,7 @@ func DefineInstance(instanceSettings *config.InstanceSettings, app *nais_io_v1al
 	return instance
 }
 
-func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
+func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, mgr *common_main.Manager) error {
 	mgr.Logger.Info("preparing source instance for migration")
 
 	b := retry.NewConstant(1 * time.Second)
@@ -145,14 +145,6 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, targe
 		if err != nil {
 			mgr.Logger.Warn("failed to get source instance, retrying", "error", err)
 			return retry.RetryableError(err)
-		}
-
-		for idx, ip := range target.OutgoingIps {
-			authNetwork := v1beta1.InstanceAuthorizedNetworks{
-				Name:  ptr.To(fmt.Sprintf("%s-%d", target.Name, idx)),
-				Value: fmt.Sprintf("%s/32", ip),
-			}
-			sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
 		}
 
 		authNetwork, err := createMigratorAuthNetwork()
@@ -198,6 +190,64 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, targe
 
 	}
 	mgr.Logger.Info("source instance prepared for migration")
+	return nil
+}
+
+func AddTargetOutgoingIpsToSourceAuthNetworks(ctx context.Context, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
+	mgr.Logger.Info("updating authorized networks for source instance")
+
+	b := retry.NewConstant(1 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
+
+	err := retry.Do(ctx, b, func(ctx context.Context) error {
+		sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
+		if err != nil {
+			mgr.Logger.Warn("failed to get source instance, retrying", "error", err)
+			return retry.RetryableError(err)
+		}
+
+		for idx, ip := range target.OutgoingIps {
+			authNetwork := v1beta1.InstanceAuthorizedNetworks{
+				Name:  ptr.To(fmt.Sprintf("%s-%d", target.Name, idx)),
+				Value: fmt.Sprintf("%s/32", ip),
+			}
+			sourceSqlInstance.Spec.Settings.IpConfiguration.AuthorizedNetworks = appendAuthNetIfNotExists(sourceSqlInstance, authNetwork)
+		}
+
+		_, err = mgr.SqlInstanceClient.Update(ctx, sourceSqlInstance)
+		if err != nil {
+			if k8s_errors.IsConflict(err) {
+				mgr.Logger.Warn("retrying update of source instance")
+				return retry.RetryableError(err)
+			}
+			return err
+		}
+
+		mgr.Logger.Info("update of source instance applied")
+		return nil
+	})
+
+	if err != nil {
+		mgr.Logger.Error("failed to update authorized networks of source instance", "error", err)
+		return err
+	}
+
+	time.Sleep(1 * time.Second)
+	updatedSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
+	if err != nil {
+		return err
+	}
+
+	for updatedSqlInstance.Status.Conditions[0].Status != "True" {
+		mgr.Logger.Info("waiting for source instance to be ready")
+		time.Sleep(3 * time.Second)
+		updatedSqlInstance, err = mgr.SqlInstanceClient.Get(ctx, source.Name)
+		if err != nil {
+			return err
+		}
+
+	}
+	mgr.Logger.Info("completed update of authorized networks of source instance")
 	return nil
 }
 

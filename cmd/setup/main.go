@@ -38,7 +38,7 @@ func main() {
 
 	// The migrationStepsTotal must be updated if the number of steps in the setup process changes
 	// Used by nais-cli to show progressbar
-	mgr.Logger.Info("Setup started", "config", cfg, "migrationStepsTotal", 15)
+	mgr.Logger.Info("Setup started", "config", cfg, "migrationStepsTotal", 19)
 
 	mgr.Logger.Info("Resolving GCP project ID", "migrationStep", 1)
 	gcpProject, err := resolved.ResolveGcpProject(ctx, cfg, mgr)
@@ -109,7 +109,7 @@ func main() {
 	}
 
 	mgr.Logger.Info("Preparing source instance", "migrationStep", 10)
-	err = instance.PrepareSourceInstance(ctx, source, target, mgr)
+	err = instance.PrepareSourceInstance(ctx, source, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source instance", "error", err)
 		os.Exit(13)
@@ -137,11 +137,45 @@ func main() {
 	}
 
 	mgr.Logger.Info("Setting up migration", "migrationStep", 14)
-	err = migration.SetupMigration(ctx, cfg, gcpProject, source, target, mgr)
+	migrationJobName, err := migration.PrepareMigrationJob(ctx, cfg, gcpProject, source, target, mgr)
 	if err != nil {
-		mgr.Logger.Error("failed to setup migration", "error", err)
+		mgr.Logger.Error("failed to prepare migration", "error", err)
 		os.Exit(17)
 	}
 
-	mgr.Logger.Info("Setup completed", "migrationStep", 15)
+	helperName, err := common_main.HelperName(cfg.ApplicationName)
+	if err != nil {
+		mgr.Logger.Error("Failed to get helper name", "error", err)
+		os.Exit(18)
+	}
+
+	mgr.Logger.Info("Getting helper application", "name", helperName, "migrationStep", 15)
+	helperApp, err := mgr.AppClient.Get(ctx, helperName)
+	if err != nil {
+		mgr.Logger.Error("Failed to get helper application", "error", err)
+		os.Exit(19)
+	}
+
+	mgr.Logger.Info("Resolving target instance after preparations", "migrationStep", 16)
+	target, err = resolved.ResolveInstance(ctx, helperApp, mgr, resolved.RequireOutgoingIp)
+	if err != nil {
+		mgr.Logger.Error("Failed to resolve target", "error", err)
+		os.Exit(20)
+	}
+
+	mgr.Logger.Info("Updating authorized networks for source instance", "migrationStep", 17)
+	err = instance.AddTargetOutgoingIpsToSourceAuthNetworks(ctx, source, target, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to prepare source instance", "error", err)
+		os.Exit(21)
+	}
+
+	mgr.Logger.Info("Starting migration", "migrationStep", 18)
+	err = migration.StartMigrationJob(ctx, migrationJobName, mgr)
+	if err != nil {
+		mgr.Logger.Error("failed to start migration", "error", err)
+		os.Exit(22)
+	}
+
+	mgr.Logger.Info("Setup completed", "migrationStep", 19)
 }
