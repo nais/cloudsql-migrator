@@ -32,6 +32,7 @@ spec:
         tier: db-custom-1-4096
         name: not-same-as-app-${NUM}
         cascadingDelete: true
+        highAvailability: true
         databases:
           - name: nada-db-test
             envVarPrefix: DB

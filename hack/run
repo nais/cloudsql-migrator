@@ -26,4 +26,4 @@ exe_path="${script_path}/../bin/${ACTION}"
 
 echo "Executing ${exe_path} for application ${APP_NAME}"
 
-${exe_path}
+${exe_path} | humanlog
