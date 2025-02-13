@@ -20,7 +20,7 @@ require (
 	github.com/nais/liberator v0.0.0-20240508112139-876aae49c479
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
-	github.com/sethvargo/go-envconfig v1.1.0
+	github.com/sethvargo/go-envconfig v1.1.1
 	github.com/sethvargo/go-retry v0.3.0
 	golang.org/x/sync v0.11.0
 	golang.org/x/vuln v1.1.4
