@@ -24,6 +24,8 @@ github.com/GoogleCloudPlatform/k8s-config-connector v1.127.0 h1:dwRdvrHg4sYFLSFJ
 github.com/GoogleCloudPlatform/k8s-config-connector v1.127.0/go.mod h1:dwXbm8gE0B2ZiMr7JgsN9ScYan+axQoWaZHGYGaV6LM=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.128.0 h1:AS9xEfy/bhzMclMNiUw4+1t8K6VoBxNHyxgBqws/1g4=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.128.0/go.mod h1:6e84V8NOA89icS5Vb9hdQj+hUXP0zXur2M2vP7Pvz74=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.129.2 h1:I8Z7ak9GKvUHrmAojXaI/DD5/RaH1UqHyXaJhIgOLlc=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.129.2/go.mod h1:FMNPeVC2Js692MIpLJrkTMNTZ8hRm2pnVt2S3fnx2vs=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
