@@ -3,9 +3,10 @@ package netpol
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/nais/liberator/pkg/namegen"
 	"k8s.io/apimachinery/pkg/util/validation"
-	"os"
 
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
@@ -47,7 +48,7 @@ func CreateNetworkPolicy(ctx context.Context, cfg *config.Config, source *resolv
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					// This label must match the label on the job running the migration, as set by nais-cli
-					"migrator.nais.io/migration-name": fmt.Sprintf("migration-%s-%s", cfg.ApplicationName, target.Name),
+					"migrator.nais.io/migration-name": name,
 				},
 			},
 			Egress: []v1.NetworkPolicyEgressRule{{
