@@ -3,10 +3,12 @@ package resolved
 import (
 	"context"
 	"fmt"
-	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
-	"github.com/sethvargo/go-retry"
 	"strings"
 	"time"
+
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
+	"github.com/nais/liberator/pkg/namegen"
+	"github.com/sethvargo/go-retry"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
@@ -87,7 +89,18 @@ func MigrationName(sourceName, targetName string) (string, error) {
 	if len(sourceName) == 0 || len(targetName) == 0 {
 		return "", fmt.Errorf("source and target must be resolved")
 	}
-	return fmt.Sprintf("%s-%s", sourceName, targetName), nil
+	name := fmt.Sprintf("%s-%s", sourceName, targetName)
+
+	const maxlen = 60 // Google allows a max length of 60 for migration job names
+	if len(name) > maxlen {
+		var err error
+		name, err = namegen.ShortName(name, maxlen)
+		if err != nil {
+			return "", fmt.Errorf("generating migration name: %w", err)
+		}
+	}
+
+	return name, nil
 }
 
 func (i *Instance) resolveAppPassword(secret *v1.Secret) error {
