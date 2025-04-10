@@ -173,7 +173,7 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 				if strings.Contains(condition.Message, "Cannot assign a private IP address for an existing Cloud SQL instance in a Shared VPC") {
 					mgr.Logger.Warn("sql instance update has failed on assigning private IP to existing instance, attempting fix")
 					sqlInstance.Spec.Settings.IpConfiguration.PrivateNetworkRef = nil
-					sqlInstance, err = mgr.SqlInstanceClient.Patch(ctx, instance.Name, types.JSONPatchType, []byte("[{\"op\": \"remove\", \"path\": \"/spec/settings/ipConfiguration/privateNetworkRef\"}]"))
+					_, err = mgr.SqlInstanceClient.Patch(ctx, instance.Name, types.JSONPatchType, []byte("[{\"op\": \"remove\", \"path\": \"/spec/settings/ipConfiguration/privateNetworkRef\"}]"))
 					if err != nil {
 						mgr.Logger.Error("unable to patch sql instance, retrying", "instance", instance.Name)
 						return nil, retry.RetryableError(fmt.Errorf("unable to patch sql instance, retrying to see if we can recover: %w", err))
