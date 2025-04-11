@@ -3,6 +3,7 @@ package resolved
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"strings"
 	"time"
 
@@ -152,6 +153,62 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 	b := retry.NewConstant(5 * time.Second)
 	b = retry.WithMaxDuration(15*time.Minute, b)
 
+	sqlInstance, err := retry.DoValue(ctx, b, func(ctx context.Context) (*v1beta1.SQLInstance, error) {
+		mgr.Logger.Info("waiting for sql instance to be ready", "instance", instance.Name)
+		sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, instance.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				mgr.Logger.Info("sql instance not found, retrying", "instance", instance.Name)
+				return nil, retry.RetryableError(fmt.Errorf("sql instance not found, retrying: %w", err))
+			}
+			mgr.Logger.Info("unable to get sql instance, retrying", "instance", instance.Name)
+			return nil, retry.RetryableError(fmt.Errorf("unable to get sql instance, retrying: %w", err))
+		}
+
+		conditionsNotEmpty := len(sqlInstance.Status.Conditions) > 0
+		if conditionsNotEmpty {
+			condition := sqlInstance.Status.Conditions[0]
+
+			if condition.Reason == "UpdateFailed" {
+				if strings.Contains(condition.Message, "Cannot assign a private IP address for an existing Cloud SQL instance in a Shared VPC") {
+					mgr.Logger.Warn("sql instance update has failed on assigning private IP to existing instance, attempting fix")
+					sqlInstance.Spec.Settings.IpConfiguration.PrivateNetworkRef = nil
+					_, err = mgr.SqlInstanceClient.Patch(ctx, instance.Name, types.JSONPatchType, []byte("[{\"op\": \"remove\", \"path\": \"/spec/settings/ipConfiguration/privateNetworkRef\"}]"))
+					if err != nil {
+						mgr.Logger.Error("unable to patch sql instance, retrying", "instance", instance.Name)
+						return nil, retry.RetryableError(fmt.Errorf("unable to patch sql instance, retrying to see if we can recover: %w", err))
+					}
+					mgr.Logger.Info("attempted patch requires time to resolve, retrying")
+					return nil, retry.RetryableError(fmt.Errorf("attempted patch requires time to resolve, retrying to see if it is resolved"))
+				}
+				return nil, retry.RetryableError(fmt.Errorf("sql instance update has failed, retrying to see if it resolves itself: %s", condition.Message))
+			}
+
+			if condition.Reason == "UpToDate" {
+				return sqlInstance, nil
+			}
+		}
+		mgr.Logger.Info("sql instance not ready, retrying")
+		return nil, retry.RetryableError(fmt.Errorf("sql instance not ready, retrying"))
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	mgr.Logger.Info("sql instance is ready, resolving values")
+	if sqlInstance.Status.PublicIpAddress == nil {
+		return nil, fmt.Errorf("sql instance %s does not have public ip address", instance.Name)
+	}
+	instance.PrimaryIp = *sqlInstance.Status.PublicIpAddress
+
+	err = resolveOutgoingIps(ctx, instance, mgr, RequireOutgoingIp.In(required))
+	if err != nil {
+		return nil, err
+	}
+
+	b = retry.NewConstant(5 * time.Second)
+	b = retry.WithMaxDuration(15*time.Minute, b)
+
 	secretName := "google-sql-" + app.Name
 	secret, err := retry.DoValue(ctx, b, func(ctx context.Context) (*v1.Secret, error) {
 		var secret *v1.Secret
@@ -179,51 +236,6 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 	}
 
 	err = instance.resolveAppPassword(secret)
-	if err != nil {
-		return nil, err
-	}
-
-	b = retry.NewConstant(5 * time.Second)
-	b = retry.WithMaxDuration(15*time.Minute, b)
-
-	sqlInstance, err := retry.DoValue(ctx, b, func(ctx context.Context) (*v1beta1.SQLInstance, error) {
-		mgr.Logger.Info("waiting for sql instance to be ready", "instance", instance.Name)
-		sqlInstance, err := mgr.SqlInstanceClient.Get(ctx, instance.Name)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				mgr.Logger.Info("sql instance not found, retrying", "instance", instance.Name)
-				return nil, retry.RetryableError(fmt.Errorf("sql instance not found, retrying: %w", err))
-			}
-			mgr.Logger.Info("unable to get sql instance, retrying", "instance", instance.Name)
-			return nil, retry.RetryableError(fmt.Errorf("unable to get sql instance, retrying: %w", err))
-		}
-
-		conditionsNotEmpty := len(sqlInstance.Status.Conditions) > 0
-		if conditionsNotEmpty {
-			condition := sqlInstance.Status.Conditions[0]
-
-			if condition.Reason == "UpdateFailed" {
-				return nil, retry.RetryableError(fmt.Errorf("sql instance update has failed, retrying to see if it resolves itself: %s", condition.Message))
-			}
-
-			if condition.Reason == "UpToDate" {
-				return sqlInstance, nil
-			}
-		}
-		mgr.Logger.Info("sql instance not ready, retrying")
-		return nil, retry.RetryableError(fmt.Errorf("sql instance not ready, retrying"))
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	mgr.Logger.Info("sql instance is ready, resolving values")
-	if sqlInstance.Status.PublicIpAddress == nil {
-		return nil, fmt.Errorf("sql instance %s does not have public ip address", instance.Name)
-	}
-	instance.PrimaryIp = *sqlInstance.Status.PublicIpAddress
-
-	err = resolveOutgoingIps(ctx, instance, mgr, RequireOutgoingIp.In(required))
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/utils/ptr"
 )
@@ -25,6 +26,7 @@ type GenericClient[T interface {
 }, P any] interface {
 	Get(ctx context.Context, name string) (*P, error)
 	Delete(ctx context.Context, name string) error
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte) (*P, error)
 	DeleteCollection(ctx context.Context, listOptions metav1.ListOptions) error
 	Update(ctx context.Context, obj *P) (*P, error)
 	Create(ctx context.Context, obj *P) (*P, error)
@@ -70,6 +72,22 @@ func (g *genericClient[T, P]) Delete(ctx context.Context, name string) error {
 	}
 
 	return nil
+}
+
+func (g *genericClient[T, P]) Patch(ctx context.Context, name string, pt types.PatchType, data []byte) (*P, error) {
+	obj := new(P)
+
+	u, err := g.client.Patch(ctx, name, pt, data, metav1.PatchOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, obj)
+	if err != nil {
+		return obj, err
+	}
+
+	return obj, nil
 }
 
 func (g *genericClient[T, P]) DeleteCollection(ctx context.Context, listOptions metav1.ListOptions) error {
