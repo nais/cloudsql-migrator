@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
-	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
+	monpb "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
+
 	"github.com/nais/cloudsql-migrator/internal/pkg/common_main"
 	"github.com/nais/cloudsql-migrator/internal/pkg/instance"
 	"github.com/nais/cloudsql-migrator/internal/pkg/migration"
@@ -89,44 +92,56 @@ func waitForReplicationLagToReachZero(ctx context.Context, target *resolved.Inst
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
-	queryClient, err := monitoring.NewQueryClient(ctx)
+	client, err := monitoring.NewMetricClient(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create query client: %w", err)
+		panic(fmt.Sprintf("failed to create metric client: %v", err))
 	}
-	defer queryClient.Close()
+	defer client.Close()
 
-	req := &monitoringpb.QueryTimeSeriesRequest{
-		Name: gcpProject.GcpParentURI(),
-		Query: "fetch cloudsql_database\n" +
-			"| metric\n" +
-			"    'cloudsql.googleapis.com/database/postgresql/external_sync/max_replica_byte_lag'\n" +
-			"| filter\n" +
-			"    resource.region == 'europe-north1' && \n" +
-			fmt.Sprintf("    resource.project_id == '%s' &&\n", gcpProject.Id) +
-			fmt.Sprintf("    resource.database_id == '%s:%s'\n", gcpProject.Id, target.Name) +
-			"| group_by [], mean(val())\n" +
-			"| within 5m\n",
+	endTime := time.Now()
+	startTime := endTime.Add(-5 * time.Minute)
+
+	// TODO: Resolve the region dynamically
+	req := &monpb.ListTimeSeriesRequest{
+		Name:   "projects/" + gcpProject.Id,
+		Filter: fmt.Sprintf(`metric.type="cloudsql.googleapis.com/database/postgresql/external_sync/max_replica_byte_lag" AND resource.labels.region="europe-north1" AND resource.labels.project_id="%s" AND resource.labels.database_id="%s:%s"`, gcpProject.Id, gcpProject.Id, target.Name),
+		Interval: &monpb.TimeInterval{
+			StartTime: timestamppb.New(startTime),
+			EndTime:   timestamppb.New(endTime),
+		},
+		View: monpb.ListTimeSeriesRequest_FULL,
+		Aggregation: &monpb.Aggregation{
+			AlignmentPeriod:  durationpb.New(60 * time.Second), // 5 min
+			PerSeriesAligner: monpb.Aggregation_ALIGN_MAX,
+		},
 	}
 
 	for {
 		mgr.Logger.Info("checking replication lag")
-		it := queryClient.QueryTimeSeries(ctx, req)
-
-		var data *monitoringpb.TimeSeriesData
-		data, err = it.Next()
+		it := client.ListTimeSeries(ctx, req)
+		replicationLagZero := true
+		data, err := it.Next()
 		if err != nil {
 			if !errors.Is(err, iterator.Done) {
 				return fmt.Errorf("failed to fetch time series data: %w", err)
 			}
 			mgr.Logger.Info("no more data in iterator")
 		} else {
-			value := data.PointData[0].Values[0].GetInt64Value()
-			if value == 0 {
+			for _, point := range data.Points {
+				switch value := point.GetValue().GetValue().(type) {
+				case *monpb.TypedValue_Int64Value:
+					if value.Int64Value != 0 {
+						replicationLagZero = false
+						time.Sleep(30 * time.Second)
+					}
+				default:
+					return fmt.Errorf("unknown type from cloud monitoring: %T", value)
+				}
+			}
+			if replicationLagZero {
 				mgr.Logger.Info("replication lag reached zero")
 				return nil
 			}
-			mgr.Logger.Info("replication lag still not zero", "value", value)
 		}
-		time.Sleep(30 * time.Second)
 	}
 }
