@@ -4,6 +4,8 @@ cloud.google.com/go v0.120.0 h1:wc6bgG9DHyKqF5/vQvX1CiZrtHnxJjBlKUyF9nP6meA=
 cloud.google.com/go v0.120.0/go.mod h1:/beW32s8/pGRuj4IILWQNd4uuebeT4dkOhKmkfit64Q=
 cloud.google.com/go v0.121.0 h1:pgfwva8nGw7vivjZiRfrmglGWiCJBP+0OmDpenG/Fwg=
 cloud.google.com/go v0.121.0/go.mod h1:rS7Kytwheu/y9buoDmu5EIpMMCI4Mb8ND4aeN4Vwj7Q=
+cloud.google.com/go v0.121.1 h1:S3kTQSydxmu1JfLRLpKtxRPA7rSrYPRPEUmL/PavVUw=
+cloud.google.com/go v0.121.1/go.mod h1:nRFlrHq39MNVWu+zESP2PosMWA0ryJw8KUBZ2iZpxbw=
 cloud.google.com/go/auth v0.15.0 h1:Ly0u4aA5vG/fsSsxu98qCQBemXtAtJf+95z9HK+cxps=
 cloud.google.com/go/auth v0.15.0/go.mod h1:WJDGqZ1o9E9wKIL+IwStfyn/+s59zl4Bi+1KQNVXLZ8=
 cloud.google.com/go/auth v0.16.0 h1:Pd8P1s9WkcrBE2n/PhAwKsdrR35V3Sg2II9B+ndM3CU=
@@ -46,6 +48,8 @@ github.com/GoogleCloudPlatform/k8s-config-connector v1.131.0 h1:UUJzcPxkIDY6pmpl
 github.com/GoogleCloudPlatform/k8s-config-connector v1.131.0/go.mod h1:5fPMPKodc36D0rlZlB9e8JOPShWTJEUYnoC+rGCXZJs=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.132.0 h1:YoaZxhv6jh9J6iQw+CaGB/yU6LR6bij7HMbFhLguDlU=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.132.0/go.mod h1:s2NzlZKVa+gP2Bq1j3LEOXjhpLHGgSBrxjrFDF65+sY=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.132.1 h1:awQdLLyKYpTdkdAw2CA7odkVSJygQKyNT0pkwnSUcTo=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.132.1/go.mod h1:ayVascU21JilaN/rix60FlpombVK8zIhg7x9aO6Unnw=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
