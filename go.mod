@@ -22,7 +22,7 @@ require (
 	github.com/sethvargo/go-retry v0.3.0
 	golang.org/x/sync v0.16.0
 	golang.org/x/vuln v1.1.4
-	google.golang.org/api v0.241.0
+	google.golang.org/api v0.242.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 	honnef.co/go/tools v0.6.1
