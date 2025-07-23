@@ -23,7 +23,7 @@ require (
 	golang.org/x/sync v0.16.0
 	golang.org/x/vuln v1.1.4
 	google.golang.org/api v0.243.0
-	google.golang.org/grpc v1.74.0
+	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.6
 	honnef.co/go/tools v0.6.1
 	k8s.io/api v0.33.3
