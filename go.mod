@@ -20,7 +20,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/sethvargo/go-retry v0.3.0
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.17.0
 	golang.org/x/vuln v1.1.4
 	google.golang.org/api v0.248.0
 	google.golang.org/grpc v1.75.0
