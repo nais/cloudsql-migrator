@@ -6,6 +6,8 @@ cloud.google.com/go v0.121.0 h1:pgfwva8nGw7vivjZiRfrmglGWiCJBP+0OmDpenG/Fwg=
 cloud.google.com/go v0.121.0/go.mod h1:rS7Kytwheu/y9buoDmu5EIpMMCI4Mb8ND4aeN4Vwj7Q=
 cloud.google.com/go v0.121.1 h1:S3kTQSydxmu1JfLRLpKtxRPA7rSrYPRPEUmL/PavVUw=
 cloud.google.com/go v0.121.1/go.mod h1:nRFlrHq39MNVWu+zESP2PosMWA0ryJw8KUBZ2iZpxbw=
+cloud.google.com/go v0.121.2 h1:v2qQpN6Dx9x2NmwrqlesOt3Ys4ol5/lFZ6Mg1B7OJCg=
+cloud.google.com/go v0.121.2/go.mod h1:nRFlrHq39MNVWu+zESP2PosMWA0ryJw8KUBZ2iZpxbw=
 cloud.google.com/go/auth v0.15.0 h1:Ly0u4aA5vG/fsSsxu98qCQBemXtAtJf+95z9HK+cxps=
 cloud.google.com/go/auth v0.15.0/go.mod h1:WJDGqZ1o9E9wKIL+IwStfyn/+s59zl4Bi+1KQNVXLZ8=
 cloud.google.com/go/auth v0.16.0 h1:Pd8P1s9WkcrBE2n/PhAwKsdrR35V3Sg2II9B+ndM3CU=
@@ -62,6 +64,8 @@ github.com/GoogleCloudPlatform/k8s-config-connector v1.133.0 h1:UkDct2W/stF7xbtp
 github.com/GoogleCloudPlatform/k8s-config-connector v1.133.0/go.mod h1:yLQZm2falW+NYujd1k4xMkTl+8f5iZxuxlYbMpsjtyk=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.134.0 h1:icm1pUNiifnYnE/bqLHH+oAMbRtZu9kckjJ0I7CE6KI=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.134.0/go.mod h1:Mc2Nc8/IQ2qXpq9Yr+CkV2Co3yKU5eRz4fLCUMeqxqU=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.135.0 h1:LRy5A8VVAUt+8Qw8jyWzY4vk0EXbeA/hDmyPQ/r+cnw=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.135.0/go.mod h1:RqnN3FpuIKnvZ3WiPBLFW16VMtAtFrv3YuF3eTgJ7pU=
 github.com/Masterminds/semver/v3 v3.3.1 h1:QtNSWtVZ3nBfk8mAOu/B6v7FMJ+NHTIgUPi7rj+4nv4=
 github.com/Masterminds/semver/v3 v3.3.1/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
@@ -496,6 +500,8 @@ google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822 h1:
 google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822/go.mod h1:h3c4v36UTKzUiuaOKQ6gr3S+0hovBtUrXzTG/i3+XEc=
 google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 h1:FiusG7LWj+4byqhbvmB+Q93B/mOxJLN2DTozDuZm4EU=
 google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7/go.mod h1:kXqgZtrWaf6qS3jZOCnCH7WYfrvFjkC51bM8fz3RsCA=
+google.golang.org/genproto/googleapis/api v0.0.0-20250804133106-a7a43d27e69b h1:ULiyYQ0FdsJhwwZUwbaXpZF5yUE3h+RA+gxvBu37ucc=
+google.golang.org/genproto/googleapis/api v0.0.0-20250804133106-a7a43d27e69b/go.mod h1:oDOGiMSXHL4sDTJvFvIB9nRQCGdLP1o/iVaqQK8zB+M=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4 h1:iK2jbkWL86DXjEx0qiHcRE9dE4/Ahua5k6V8OWFb//c=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4/go.mod h1:LuRYeWDFV6WOn90g357N17oMCaxpgCnbi/44qJvDn2I=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e h1:ztQaXfzEXTmCBvbtWYRhJxW+0iJcz2qXfd38/e9l7bA=

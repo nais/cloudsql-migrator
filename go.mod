@@ -12,7 +12,7 @@ replace github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp => ./invalid
 require (
 	cloud.google.com/go/clouddms v1.8.7
 	cloud.google.com/go/monitoring v1.24.2
-	github.com/GoogleCloudPlatform/k8s-config-connector v1.134.0
+	github.com/GoogleCloudPlatform/k8s-config-connector v1.135.0
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.10.9
 	github.com/nais/liberator v0.0.0-20250411064636-3e5a44a59298
@@ -34,7 +34,7 @@ require (
 )
 
 require (
-	cloud.google.com/go v0.121.1 // indirect
+	cloud.google.com/go v0.121.2 // indirect
 	cloud.google.com/go/auth v0.16.5 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.8.0 // indirect
@@ -106,7 +106,7 @@ require (
 	golang.org/x/tools v0.36.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250804133106-a7a43d27e69b // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
