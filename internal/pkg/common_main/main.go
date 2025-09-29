@@ -1,9 +1,11 @@
 package common_main
 
 import (
-	dms "cloud.google.com/go/clouddms/apiv1"
 	"context"
 	"fmt"
+	"log/slog"
+
+	dms "cloud.google.com/go/clouddms/apiv1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	"github.com/nais/cloudsql-migrator/internal/pkg/config"
 	"github.com/nais/cloudsql-migrator/internal/pkg/k8s"
@@ -14,7 +16,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"log/slog"
 )
 
 type Manager struct {
@@ -101,6 +102,9 @@ func newK8sClient() (kubernetes.Interface, dynamic.Interface, error) {
 	return clientset, dynamicClient, nil
 }
 
+// HelperName generates a name for the helper application, based on the application name.
+// This is a copy of the corresponding function in nais/cli/internal/postgres/migrate/setup.go:184
+// If a functional change is made here, it should be made in both places.
 func HelperName(basename string) (string, error) {
 	helperName, err := namegen.ShortName(fmt.Sprintf("migrator-%s", basename), 63)
 	if err != nil {
