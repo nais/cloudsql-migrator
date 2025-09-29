@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sethvargo/go-retry"
+	"google.golang.org/api/sqladmin/v1"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	_ "github.com/lib/pq"
@@ -518,6 +519,37 @@ func CleanupAuthNetworks(ctx context.Context, target *resolved.Instance, mgr *co
 		mgr.Logger.Error("failed to cleanup authorized networks", "error", err)
 	}
 	return err
+}
+
+func ValidateSourceInstance(ctx context.Context, source *resolved.Instance, project *resolved.GcpProject, mgr *common_main.Manager) error {
+	mgr.Logger.Info("validating source instance eligibility for migration")
+
+	b := retry.NewConstant(3 * time.Second)
+	b = retry.WithMaxDuration(5*time.Minute, b)
+
+	instance, err := retry.DoValue(ctx, b, func(ctx context.Context) (*sqladmin.DatabaseInstance, error) {
+		instance, err := mgr.SqlAdminService.Instances.Get(project.Id, source.Name).Context(ctx).Do()
+		if err != nil {
+			return nil, retry.RetryableError(fmt.Errorf("failed to get source instance from GCP: %w", err))
+		}
+		return instance, nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if instance.Settings != nil {
+		if instance.Settings.IpConfiguration != nil {
+			ipConf := instance.Settings.IpConfiguration
+			if ipConf.PrivateNetwork != "" {
+				if !strings.HasPrefix(ipConf.PrivateNetwork, "projects/nais") || !strings.HasSuffix(ipConf.PrivateNetwork, "/global/networks/nais-vpc") {
+					return fmt.Errorf("invalid private network configuration: %s", ipConf.PrivateNetwork)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func createMigratorAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) {
