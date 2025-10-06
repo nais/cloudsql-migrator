@@ -29,7 +29,7 @@ func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *reso
 	}
 	source.PostgresPassword = databasePassword
 
-	certPaths, err := instance.CreateSslCert(ctx, cfg, mgr, source.Name, &source.SslCert)
+	certPaths, err := instance.CreateSslCert(ctx, cfg, source.Name, &source.SslCert, gcpProject, mgr)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func PrepareTargetDatabase(ctx context.Context, cfg *config.Config, target *reso
 	}
 	target.PostgresPassword = databasePassword
 
-	certPaths, err := instance.CreateSslCert(ctx, cfg, mgr, cfg.TargetInstance.Name, &target.SslCert)
+	certPaths, err := instance.CreateSslCert(ctx, cfg, cfg.TargetInstance.Name, &target.SslCert, gcpProject, mgr)
 	if err != nil {
 		return nil, err
 	}
@@ -213,6 +213,7 @@ func installExtension(ctx context.Context, mgr *common_main.Manager, source *res
 	}
 
 	for _, dbInfo := range dbInfos {
+		// TODO: Add retry behaviour
 		logger.Info("connecting to database", "database", dbInfo.DatabaseName, "user", dbInfo.Username)
 		dbConn, err := createConnection(
 			source.PrimaryIp,

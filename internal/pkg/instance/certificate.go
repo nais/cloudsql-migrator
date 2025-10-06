@@ -3,9 +3,10 @@ package instance
 import (
 	"context"
 	"fmt"
-	"google.golang.org/api/sqladmin/v1"
 	"os"
 	"time"
+
+	"google.golang.org/api/sqladmin/v1"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
@@ -22,7 +23,7 @@ type CertPaths struct {
 	KeyPath      string
 }
 
-func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Manager, instance string, sslCert *resolved.SslCert) (*CertPaths, error) {
+func CreateSslCert(ctx context.Context, cfg *config.Config, instance string, sslCert *resolved.SslCert, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*CertPaths, error) {
 	helperName, err := common_main.HelperName(instance)
 	if err != nil {
 		return nil, err
@@ -32,6 +33,12 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Man
 
 	sqlSslCert, err := mgr.SqlSslCertClient.Get(ctx, helperName)
 	if errors.IsNotFound(err) {
+		logger.Info("Ensuring SSL certificate is removed from instance before creating a new one")
+		err = DeleteSslCertByCommonName(ctx, instance, helperName, gcpProject, mgr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete existing ssl cert: %w", err)
+		}
+
 		logger.Info("creating new ssl certificate")
 		sqlSslCert, err = mgr.SqlSslCertClient.Create(ctx, &v1beta1.SQLSSLCert{
 			TypeMeta: v1.TypeMeta{
@@ -62,6 +69,7 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, mgr *common_main.Man
 	}
 
 	for sqlSslCert.Status.Cert == nil || sqlSslCert.Status.PrivateKey == nil || sqlSslCert.Status.ServerCaCert == nil {
+		// TODO: Proper retry handling with exit
 		time.Sleep(3 * time.Second)
 		sqlSslCert, err = mgr.SqlSslCertClient.Get(ctx, sqlSslCert.Name)
 		if err != nil {
@@ -119,31 +127,46 @@ func DeleteSslCertByCommonName(ctx context.Context, instanceName, commonName str
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
+	item, err := findSslCertByCommonName(ctx, instanceName, commonName, gcpProject, mgr)
+	if err != nil {
+		return err
+	}
+
+	if item != nil {
+		mgr.Logger.Info("deleting ssl certificate", "commonName", commonName)
+		var op *sqladmin.Operation
+		op, err = sslCertsService.Delete(gcpProject.Id, instanceName, item.Sha1Fingerprint).Context(ctx).Do()
+		if err != nil {
+			return fmt.Errorf("failed to delete ssl cert: %w", err)
+		}
+		for op.Status != "DONE" {
+			time.Sleep(1 * time.Second)
+			op, err = operationsService.Get(gcpProject.Id, op.Name).Context(ctx).Do()
+			if err != nil {
+				return fmt.Errorf("failed to get ssl cert delete operation status: %w", err)
+			}
+		}
+		return nil
+	}
+
+	mgr.Logger.Info("ssl cert not found", "commonName", commonName)
+	return nil
+}
+
+func findSslCertByCommonName(ctx context.Context, instanceName, commonName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*sqladmin.SslCert, error) {
+	sslCertsService := mgr.SqlAdminService.SslCerts
+
 	mgr.Logger.Info("listing ssl certs", "instance", instanceName)
 	listResponse, err := sslCertsService.List(gcpProject.Id, instanceName).Context(ctx).Do()
 	if err != nil {
-		return fmt.Errorf("failed to list ssl certs: %w", err)
+		return nil, fmt.Errorf("failed to list ssl certs: %w", err)
 	}
 
 	for _, item := range listResponse.Items {
 		if item.CommonName == commonName {
-			mgr.Logger.Info("deleting ssl certificate", "commonName", commonName)
-			var op *sqladmin.Operation
-			op, err = sslCertsService.Delete(gcpProject.Id, instanceName, item.Sha1Fingerprint).Context(ctx).Do()
-			if err != nil {
-				return fmt.Errorf("failed to delete ssl cert: %w", err)
-			}
-			for op.Status != "DONE" {
-				time.Sleep(1 * time.Second)
-				op, err = operationsService.Get(gcpProject.Id, op.Name).Context(ctx).Do()
-				if err != nil {
-					return fmt.Errorf("failed to get ssl cert delete operation status: %w", err)
-				}
-			}
-			return nil
+			return item, nil
 		}
 	}
 
-	mgr.Logger.Warn("ssl cert not found", "commonName", commonName)
-	return nil
+	return nil, nil
 }
