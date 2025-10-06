@@ -213,33 +213,44 @@ func installExtension(ctx context.Context, mgr *common_main.Manager, source *res
 	}
 
 	for _, dbInfo := range dbInfos {
-		// TODO: Add retry behaviour
-		logger.Info("connecting to database", "database", dbInfo.DatabaseName, "user", dbInfo.Username)
-		dbConn, err := createConnection(
-			source.PrimaryIp,
-			dbInfo.Username,
-			dbInfo.Password,
-			dbInfo.DatabaseName,
-			certPaths.RootCertPath,
-			certPaths.KeyPath,
-			certPaths.CertPath,
-			logger,
-		)
-		if err != nil {
-			return err
-		}
-		defer dbConn.Close()
+		b := retry.NewConstant(5 * time.Second)
+		b = retry.WithMaxDuration(2*time.Minute, b)
 
-		logger.Info("installing extension and granting permissions to postgres user", "database", dbInfo.DatabaseName)
+		err := retry.Do(ctx, b, func(ctx context.Context) error {
+			logger.Info("connecting to database", "database", dbInfo.DatabaseName, "user", dbInfo.Username)
+			dbConn, err := createConnection(
+				source.PrimaryIp,
+				dbInfo.Username,
+				dbInfo.Password,
+				dbInfo.DatabaseName,
+				certPaths.RootCertPath,
+				certPaths.KeyPath,
+				certPaths.CertPath,
+				logger,
+			)
+			if err != nil {
+				mgr.Logger.Warn("unable to create connection, retrying", "error", err, "database", dbInfo.DatabaseName, "user", dbInfo.Username)
+				return retry.RetryableError(fmt.Errorf("unable to create connection: %w", err))
+			}
+			defer dbConn.Close()
 
-		_, err = dbConn.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pglogical; "+
-			"GRANT USAGE on SCHEMA pglogical to \"postgres\";"+
-			"GRANT SELECT on ALL TABLES in SCHEMA pglogical to \"postgres\";"+
-			"GRANT SELECT on ALL SEQUENCES in SCHEMA pglogical to \"postgres\";"+
-			"GRANT USAGE on SCHEMA public to \"postgres\";"+
-			"GRANT SELECT on ALL TABLES in SCHEMA public to \"postgres\";"+
-			"GRANT SELECT on ALL SEQUENCES in SCHEMA public to \"postgres\";"+
-			"ALTER USER \"postgres\" with REPLICATION;")
+			logger.Info("installing extension and granting permissions to postgres user", "database", dbInfo.DatabaseName)
+
+			_, err = dbConn.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS pglogical; "+
+				"GRANT USAGE on SCHEMA pglogical to \"postgres\";"+
+				"GRANT SELECT on ALL TABLES in SCHEMA pglogical to \"postgres\";"+
+				"GRANT SELECT on ALL SEQUENCES in SCHEMA pglogical to \"postgres\";"+
+				"GRANT USAGE on SCHEMA public to \"postgres\";"+
+				"GRANT SELECT on ALL TABLES in SCHEMA public to \"postgres\";"+
+				"GRANT SELECT on ALL SEQUENCES in SCHEMA public to \"postgres\";"+
+				"ALTER USER \"postgres\" with REPLICATION;")
+			if err != nil {
+				mgr.Logger.Warn("failed to install extension and grant permissions, retrying", "error", err, "database", dbInfo.DatabaseName, "user", dbInfo.Username)
+				return retry.RetryableError(fmt.Errorf("failed to install extension and grant permissions: %w", err))
+			}
+
+			return nil
+		})
 		if err != nil {
 			return err
 		}
