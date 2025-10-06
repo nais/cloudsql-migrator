@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/sethvargo/go-retry"
 	"google.golang.org/api/sqladmin/v1"
 
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
@@ -68,14 +69,23 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, instance string, ssl
 		return nil, err
 	}
 
-	for sqlSslCert.Status.Cert == nil || sqlSslCert.Status.PrivateKey == nil || sqlSslCert.Status.ServerCaCert == nil {
-		// TODO: Proper retry handling with exit
-		time.Sleep(3 * time.Second)
+	b := retry.NewConstant(15 * time.Second)
+	b = retry.WithMaxDuration(10*time.Minute, b)
+
+	sqlSslCert, err = retry.DoValue(ctx, b, func(ctx context.Context) (*v1beta1.SQLSSLCert, error) {
 		sqlSslCert, err = mgr.SqlSslCertClient.Get(ctx, sqlSslCert.Name)
 		if err != nil {
-			return nil, err
+			logger.Warn("failed to get SQLSSLCert, retrying", "error", err)
+			return nil, retry.RetryableError(fmt.Errorf("failed to get SQLSSLCert: %w", err))
 		}
-		logger.Info("waiting for SQLSSLCert to be ready")
+		if sqlSslCert.Status.Cert == nil || sqlSslCert.Status.PrivateKey == nil || sqlSslCert.Status.ServerCaCert == nil {
+			logger.Warn("SQLSSLCert missing relevant fields, retrying", "error", err)
+			return nil, retry.RetryableError(fmt.Errorf("SQLSSLCert missing relevant fields"))
+		}
+		return sqlSslCert, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	sslCert.SslCaCert = *sqlSslCert.Status.ServerCaCert
