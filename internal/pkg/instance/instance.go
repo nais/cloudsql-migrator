@@ -524,12 +524,13 @@ func CleanupAuthNetworks(ctx context.Context, target *resolved.Instance, mgr *co
 func ValidateSourceInstance(ctx context.Context, source *resolved.Instance, project *resolved.GcpProject, mgr *common_main.Manager) error {
 	mgr.Logger.Info("validating source instance eligibility for migration")
 
-	b := retry.NewConstant(3 * time.Second)
+	b := retry.NewConstant(30 * time.Second)
 	b = retry.WithMaxDuration(5*time.Minute, b)
 
 	instance, err := retry.DoValue(ctx, b, func(ctx context.Context) (*sqladmin.DatabaseInstance, error) {
 		instance, err := mgr.SqlAdminService.Instances.Get(project.Id, source.Name).Context(ctx).Do()
 		if err != nil {
+			mgr.Logger.Warn("retrying getting SQLInstance from GCP", "error", err)
 			return nil, retry.RetryableError(fmt.Errorf("failed to get source instance from GCP: %w", err))
 		}
 		return instance, nil
