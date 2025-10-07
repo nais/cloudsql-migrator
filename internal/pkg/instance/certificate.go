@@ -79,7 +79,7 @@ func CreateSslCert(ctx context.Context, cfg *config.Config, instance string, ssl
 			return nil, retry.RetryableError(fmt.Errorf("failed to get SQLSSLCert: %w", err))
 		}
 		if sqlSslCert.Status.Cert == nil || sqlSslCert.Status.PrivateKey == nil || sqlSslCert.Status.ServerCaCert == nil {
-			logger.Warn("SQLSSLCert missing relevant fields, retrying", "error", err)
+			logger.Warn("SQLSSLCert missing relevant fields, retrying")
 			return nil, retry.RetryableError(fmt.Errorf("SQLSSLCert missing relevant fields"))
 		}
 		return sqlSslCert, nil
