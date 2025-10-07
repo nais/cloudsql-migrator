@@ -3,9 +3,10 @@ package resolved
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"github.com/nais/liberator/pkg/namegen"
@@ -35,6 +36,7 @@ type Instance struct {
 	AppUsername      string
 	AppPassword      string
 	PostgresPassword string
+	Region           string
 	SslCert          SslCert
 }
 
@@ -200,6 +202,11 @@ func ResolveInstance(ctx context.Context, app *nais_io_v1alpha1.Application, mgr
 		return nil, fmt.Errorf("sql instance %s does not have public ip address", instance.Name)
 	}
 	instance.PrimaryIp = *sqlInstance.Status.PublicIpAddress
+
+	if sqlInstance.Spec.Region == nil {
+		return nil, fmt.Errorf("sql instance %s does not have region", instance.Name)
+	}
+	instance.Region = *sqlInstance.Spec.Region
 
 	err = resolveOutgoingIps(ctx, instance, mgr, RequireOutgoingIp.In(required))
 	if err != nil {

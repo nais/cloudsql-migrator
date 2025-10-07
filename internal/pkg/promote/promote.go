@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	monpb "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
@@ -101,10 +102,9 @@ func waitForReplicationLagToReachZero(ctx context.Context, target *resolved.Inst
 	endTime := time.Now()
 	startTime := endTime.Add(-5 * time.Minute)
 
-	// TODO: Resolve the region dynamically
 	req := &monpb.ListTimeSeriesRequest{
 		Name:   "projects/" + gcpProject.Id,
-		Filter: fmt.Sprintf(`metric.type="cloudsql.googleapis.com/database/postgresql/external_sync/max_replica_byte_lag" AND resource.labels.region="europe-north1" AND resource.labels.project_id="%s" AND resource.labels.database_id="%s:%s"`, gcpProject.Id, gcpProject.Id, target.Name),
+		Filter: fmt.Sprintf(`metric.type="cloudsql.googleapis.com/database/postgresql/external_sync/max_replica_byte_lag" AND resource.labels.region="%s" AND resource.labels.project_id="%s" AND resource.labels.database_id="%s:%s"`, target.Region, gcpProject.Id, gcpProject.Id, target.Name),
 		Interval: &monpb.TimeInterval{
 			StartTime: timestamppb.New(startTime),
 			EndTime:   timestamppb.New(endTime),
