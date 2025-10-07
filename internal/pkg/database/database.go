@@ -214,7 +214,7 @@ func installExtension(ctx context.Context, mgr *common_main.Manager, source *res
 
 	for _, dbInfo := range dbInfos {
 		b := retry.NewConstant(5 * time.Second)
-		b = retry.WithMaxDuration(2*time.Minute, b)
+		b = retry.WithMaxDuration(5*time.Minute, b)
 
 		err := retry.Do(ctx, b, func(ctx context.Context) error {
 			logger.Info("connecting to database", "database", dbInfo.DatabaseName, "user", dbInfo.Username)
