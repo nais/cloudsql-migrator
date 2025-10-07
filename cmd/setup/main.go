@@ -21,7 +21,7 @@ import (
 func main() {
 	cfg := &config.Config{}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 	defer cancel()
 
 	if err := envconfig.Process(ctx, cfg); err != nil {
