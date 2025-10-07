@@ -153,8 +153,8 @@ func StartMigrationJob(ctx context.Context, migrationJobName string, mgr *common
 	logger := mgr.Logger.With("migrationJobName", migrationJobName)
 	logger.Info("starting migration job")
 
-	b := retry.NewConstant(20 * time.Second)
-	b = retry.WithMaxDuration(10*time.Minute, b)
+	b := retry.NewConstant(30 * time.Second)
+	b = retry.WithMaxDuration(15*time.Minute, b)
 
 	err := retry.Do(ctx, b, func(ctx context.Context) error {
 		startOperation, err := mgr.DBMigrationClient.StartMigrationJob(ctx, &clouddmspb.StartMigrationJobRequest{
