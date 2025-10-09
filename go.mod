@@ -11,7 +11,7 @@ replace github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp => ./invalid
 
 require (
 	cloud.google.com/go/clouddms v1.8.8
-	cloud.google.com/go/monitoring v1.24.2
+	cloud.google.com/go/monitoring v1.24.3
 	github.com/GoogleCloudPlatform/k8s-config-connector v1.136.1
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.10.9
