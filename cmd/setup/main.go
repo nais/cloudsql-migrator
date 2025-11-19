@@ -74,7 +74,7 @@ func main() {
 	}
 
 	mgr.Logger.Info("Validating source instance eligibility", "migrationStep", 5)
-	err = instance.ValidateSourceInstance(ctx, source, gcpProject, mgr)
+	err = instance.ValidateSourceInstance(ctx, cfg, app, source, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("source instance is not eligible for migration", "error", err)
 		os.Exit(8)

@@ -521,7 +521,7 @@ func CleanupAuthNetworks(ctx context.Context, target *resolved.Instance, mgr *co
 	return err
 }
 
-func ValidateSourceInstance(ctx context.Context, source *resolved.Instance, project *resolved.GcpProject, mgr *common_main.Manager) error {
+func ValidateSourceInstance(ctx context.Context, cfg *config.Config, app *nais_io_v1alpha1.Application, source *resolved.Instance, project *resolved.GcpProject, mgr *common_main.Manager) error {
 	mgr.Logger.Info("validating source instance eligibility for migration")
 
 	b := retry.NewConstant(30 * time.Second)
@@ -550,7 +550,25 @@ func ValidateSourceInstance(ctx context.Context, source *resolved.Instance, proj
 		}
 	}
 
+	notifyDatabaseConnectionChanges(cfg, app, mgr)
+
 	return nil
+}
+
+func notifyDatabaseConnectionChanges(cfg *config.Config, app *nais_io_v1alpha1.Application, mgr *common_main.Manager) {
+	spec := app.Spec
+	if spec.GCP != nil {
+		gcp := spec.GCP
+		if len(gcp.SqlInstances) == 1 {
+			instance := gcp.SqlInstances[0]
+			envVarPrefix := instance.Database().EnvVarPrefix
+			if len(envVarPrefix) == 0 {
+				mgr.Logger.Warn("the default environment variable for database connections will be changed")
+				mgr.Logger.Warn(fmt.Sprintf("update your code base to use the new instance name (NAIS_DATABASE_%s_%s_)", cfg.TargetInstance.Name, instance.Database().Name))
+				return
+			}
+		}
+	}
 }
 
 func createMigratorAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) {
