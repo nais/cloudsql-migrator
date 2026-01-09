@@ -16,7 +16,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.10.9
 	github.com/nais/liberator v0.0.0-20250411064636-3e5a44a59298
-	github.com/onsi/ginkgo/v2 v2.27.3
+	github.com/onsi/ginkgo/v2 v2.27.4
 	github.com/onsi/gomega v1.38.3
 	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/sethvargo/go-retry v0.3.0
