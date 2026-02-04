@@ -64,21 +64,48 @@ func CheckReadyForPromotion(ctx context.Context, source, target *resolved.Instan
 }
 
 func Promote(ctx context.Context, source, target *resolved.Instance, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
-	err := waitForReplicationLagToReachZero(ctx, target, gcpProject, mgr)
-	if err != nil {
-		return err
-	}
-
 	migrationName, err := resolved.MigrationName(source.Name, target.Name)
 	if err != nil {
 		return err
 	}
 
-	mgr.Logger.Info("start promoting destination", "migrationName", migrationName)
+	mgr.Logger.Info("checking status of migration job", "migrationName", migrationName)
 
-	op, err := mgr.DatamigrationService.Projects.Locations.MigrationJobs.Promote(gcpProject.GcpComponentURI("migrationJobs", migrationName), &datamigration.PromoteMigrationJobRequest{}).Context(ctx).Do()
+	migrationJob, err := migration.GetMigrationJob(ctx, migrationName, gcpProject, mgr)
 	if err != nil {
-		return fmt.Errorf("failed to promote target instance: %w", err)
+		return err
+	}
+
+	var op *datamigration.Operation
+	if migrationJob.Phase == "PROMOTE_IN_PROGRESS" {
+		mgr.Logger.Info("migration job is already under promotion, continuing...", "migrationName", migrationName)
+
+		listOp, err := mgr.DatamigrationService.Projects.Locations.Operations.List(gcpProject.GcpComponentURI("migrationJobs", migrationName)).Context(ctx).Do()
+		if err != nil {
+			return fmt.Errorf("failed to list promotion operations: %w", err)
+		}
+		if len(listOp.Operations) == 0 {
+			return fmt.Errorf("failed to find current promotion operation")
+		} else if len(listOp.Operations) > 1 {
+			return fmt.Errorf("too many promotion operations")
+		}
+		op = listOp.Operations[0]
+	} else if migrationJob.State == "COMPLETED" {
+		mgr.Logger.Info("migration job is already completed, continuing...", "migrationName", migrationName)
+		op = &datamigration.Operation{
+			Done: true,
+		}
+	} else {
+		mgr.Logger.Info("migration job is ready for promotion, continuing...", "migrationName", migrationName)
+		err = waitForReplicationLagToReachZero(ctx, target, gcpProject, mgr)
+		if err != nil {
+			return err
+		}
+
+		op, err = mgr.DatamigrationService.Projects.Locations.MigrationJobs.Promote(gcpProject.GcpComponentURI("migrationJobs", migrationName), &datamigration.PromoteMigrationJobRequest{}).Context(ctx).Do()
+		if err != nil {
+			return fmt.Errorf("failed to promote target instance: %w", err)
+		}
 	}
 
 	for !op.Done {
@@ -89,7 +116,6 @@ func Promote(ctx context.Context, source, target *resolved.Instance, gcpProject 
 			return fmt.Errorf("failed to get promote operation status: %w", err)
 		}
 	}
-
 	err = instance.UpdateTargetInstanceAfterPromotion(ctx, target, mgr)
 	if err != nil {
 		return err
