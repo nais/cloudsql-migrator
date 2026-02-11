@@ -23,7 +23,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4 # ratchet:actions/checkout@v3
+      - uses: actions/checkout@v6 # ratchet:actions/checkout@v3
       - name: Install cosign
         uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # ratchet:sigstore/cosign-installer@main
         with:
