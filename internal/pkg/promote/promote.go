@@ -116,7 +116,7 @@ func Promote(ctx context.Context, source, target *resolved.Instance, gcpProject 
 			return fmt.Errorf("failed to get promote operation status: %w", err)
 		}
 	}
-	err = instance.UpdateTargetInstanceAfterPromotion(ctx, target, mgr)
+	err = instance.UpdateTargetInstanceAfterPromotion(ctx, source, target, mgr)
 	if err != nil {
 		return err
 	}
