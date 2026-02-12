@@ -43,6 +43,17 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 
 	targetInstance := DefineInstance(&cfg.TargetInstance, app)
 
+	// Disable features incompatible with DMS migration (target will be demoted to replica)
+	// These are re-enabled after promotion when the main app spec is applied by naiserator
+	if targetInstance.HighAvailability {
+		mgr.Logger.Info("temporarily disabling high availability on target instance for migration")
+		targetInstance.HighAvailability = false
+	}
+	if targetInstance.PointInTimeRecovery {
+		mgr.Logger.Info("temporarily disabling point-in-time recovery on target instance for migration")
+		targetInstance.PointInTimeRecovery = false
+	}
+
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
 		return nil, err
@@ -359,6 +370,8 @@ func PrepareTargetInstance(ctx context.Context, target *resolved.Instance, mgr *
 		}
 
 		targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled = ptr.To(false)
+		targetSqlInstance.Spec.Settings.BackupConfiguration.PointInTimeRecoveryEnabled = ptr.To(false)
+		targetSqlInstance.Spec.Settings.AvailabilityType = ptr.To("ZONAL")
 
 		var authNetwork v1beta1.InstanceAuthorizedNetworks
 		authNetwork, err = createMigratorAuthNetwork()
@@ -552,6 +565,8 @@ func ValidateSourceInstance(ctx context.Context, cfg *config.Config, app *nais_i
 
 	notifyDatabaseConnectionChanges(cfg, app, mgr)
 
+	notifyMigrationIncompatibleFeatures(app, mgr)
+
 	return nil
 }
 
@@ -568,6 +583,19 @@ func notifyDatabaseConnectionChanges(cfg *config.Config, app *nais_io_v1alpha1.A
 				return
 			}
 		}
+	}
+}
+
+func notifyMigrationIncompatibleFeatures(app *nais_io_v1alpha1.Application, mgr *common_main.Manager) {
+	if app.Spec.GCP == nil || len(app.Spec.GCP.SqlInstances) == 0 {
+		return
+	}
+	source := app.Spec.GCP.SqlInstances[0]
+	if source.HighAvailability {
+		mgr.Logger.Warn("source instance has high availability enabled; this will be temporarily disabled on the target during migration and re-enabled after promotion")
+	}
+	if source.PointInTimeRecovery {
+		mgr.Logger.Warn("source instance has point-in-time recovery enabled; this will be temporarily disabled on the target during migration and re-enabled after promotion")
 	}
 }
 
