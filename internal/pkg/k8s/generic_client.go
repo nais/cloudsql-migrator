@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/sql/v1beta1"
 	naisv1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,7 @@ type GenericClient[T interface {
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte) (*P, error)
 	DeleteCollection(ctx context.Context, listOptions metav1.ListOptions) error
 	Update(ctx context.Context, obj *P) (*P, error)
+	UpdateStatus(ctx context.Context, obj *P) (*P, error)
 	Create(ctx context.Context, obj *P) (*P, error)
 	ExistsByLabel(ctx context.Context, label string) (bool, error)
 }
@@ -109,6 +111,27 @@ func (g *genericClient[T, P]) Update(ctx context.Context, obj *P) (*P, error) {
 	u := &unstructured.Unstructured{Object: data}
 
 	u, err = g.client.Update(ctx, u, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return obj, nil
+}
+
+func (g *genericClient[T, P]) UpdateStatus(ctx context.Context, obj *P) (*P, error) {
+	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	u := &unstructured.Unstructured{Object: data}
+
+	u, err = g.client.UpdateStatus(ctx, u, metav1.UpdateOptions{})
 	if err != nil {
 		return nil, err
 	}

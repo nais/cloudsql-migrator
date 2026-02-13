@@ -65,7 +65,6 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 		app.Spec.GCP.SqlInstances = []nais_io_v1.CloudSqlInstance{
 			*targetInstance,
 		}
-		app.Status.SynchronizationHash = "resync"
 
 		app, err = mgr.AppClient.Update(ctx, app)
 		if err != nil {
@@ -75,8 +74,19 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 			}
 			return nil, err
 		}
-
 		mgr.Logger.Info("application update applied", "name", cfg.ApplicationName)
+
+		app.Status.SynchronizationHash = "resync"
+		app, err = mgr.AppClient.UpdateStatus(ctx, app)
+		if err != nil {
+			if errors.IsConflict(err) {
+				mgr.Logger.Info("retrying resync of application")
+				return nil, retry.RetryableError(err)
+			}
+			return nil, err
+		}
+		mgr.Logger.Info("application resync forced", "name", cfg.ApplicationName)
+
 		return app, nil
 	})
 	if err != nil {
@@ -86,7 +96,7 @@ func UpdateApplicationInstance(ctx context.Context, cfg *config.Config, instance
 	// Make sure naiserator and sqeletor has reacted before returning, so downstream resources have been updated
 	time.Sleep(15 * time.Second)
 	for app.Status.CorrelationID != correlationID || (app.Status.SynchronizationState != "RolloutComplete" && app.Status.SynchronizationState != "Synchronized") {
-		mgr.Logger.Info("waiting for app rollout", "appName", app.Name)
+		mgr.Logger.Info("waiting for app rollout", "appName", app.Name, "synchronizationState", app.Status.SynchronizationState, "wantedCorrelationID", correlationID, "currentCorrelationID", app.Status.CorrelationID)
 		time.Sleep(5 * time.Second)
 		app, err = mgr.AppClient.Get(ctx, app.Name)
 		if err != nil {
