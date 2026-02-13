@@ -43,6 +43,17 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 
 	targetInstance := DefineInstance(&cfg.TargetInstance, app)
 
+	// Disable features incompatible with DMS migration (target will be demoted to replica)
+	// These are re-enabled after promotion when the main app spec is applied by naiserator
+	if targetInstance.HighAvailability {
+		mgr.Logger.Info("temporarily disabling high availability on target instance for migration")
+		targetInstance.HighAvailability = false
+	}
+	if targetInstance.PointInTimeRecovery {
+		mgr.Logger.Info("temporarily disabling point-in-time recovery on target instance for migration")
+		targetInstance.PointInTimeRecovery = false
+	}
+
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
 		return nil, err
@@ -359,6 +370,8 @@ func PrepareTargetInstance(ctx context.Context, target *resolved.Instance, mgr *
 		}
 
 		targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled = ptr.To(false)
+		targetSqlInstance.Spec.Settings.BackupConfiguration.PointInTimeRecoveryEnabled = ptr.To(false)
+		targetSqlInstance.Spec.Settings.AvailabilityType = ptr.To("ZONAL")
 
 		var authNetwork v1beta1.InstanceAuthorizedNetworks
 		authNetwork, err = createMigratorAuthNetwork()
@@ -405,13 +418,19 @@ func PrepareTargetInstance(ctx context.Context, target *resolved.Instance, mgr *
 	return nil
 }
 
-func UpdateTargetInstanceAfterPromotion(ctx context.Context, target *resolved.Instance, mgr *common_main.Manager) error {
+func UpdateTargetInstanceAfterPromotion(ctx context.Context, source *resolved.Instance, target *resolved.Instance, mgr *common_main.Manager) error {
 	mgr.Logger.Info("updating target instance after promotion")
 
 	b := retry.NewConstant(1 * time.Second)
 	b = retry.WithMaxDuration(5*time.Minute, b)
 
-	err := retry.Do(ctx, b, func(ctx context.Context) error {
+	// Read source instance settings to restore HA/PITR that were disabled for migration
+	sourceSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, source.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get source instance for settings restore: %w", err)
+	}
+
+	err = retry.Do(ctx, b, func(ctx context.Context) error {
 		targetSqlInstance, err := mgr.SqlInstanceClient.Get(ctx, target.Name)
 		if err != nil {
 			return fmt.Errorf("failed to get target instance: %w", err)
@@ -419,6 +438,22 @@ func UpdateTargetInstanceAfterPromotion(ctx context.Context, target *resolved.In
 
 		targetSqlInstance.Spec.InstanceType = ptr.To("CLOUD_SQL_INSTANCE")
 		targetSqlInstance.Spec.MasterInstanceRef = nil
+
+		// Restore HA and PITR settings from source that were disabled during migration
+		targetSqlInstance.Spec.Settings.AvailabilityType = sourceSqlInstance.Spec.Settings.AvailabilityType
+		if sourceSqlInstance.Spec.Settings.BackupConfiguration != nil {
+			if targetSqlInstance.Spec.Settings.BackupConfiguration == nil {
+				targetSqlInstance.Spec.Settings.BackupConfiguration = &v1beta1.InstanceBackupConfiguration{}
+			}
+			targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled = sourceSqlInstance.Spec.Settings.BackupConfiguration.Enabled
+			targetSqlInstance.Spec.Settings.BackupConfiguration.PointInTimeRecoveryEnabled = sourceSqlInstance.Spec.Settings.BackupConfiguration.PointInTimeRecoveryEnabled
+		}
+
+		mgr.Logger.Info("restoring source instance settings on target",
+			"availabilityType", targetSqlInstance.Spec.Settings.AvailabilityType,
+			"backupEnabled", targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled,
+			"pitrEnabled", targetSqlInstance.Spec.Settings.BackupConfiguration.PointInTimeRecoveryEnabled,
+		)
 
 		_, err = mgr.SqlInstanceClient.Update(ctx, targetSqlInstance)
 		if err != nil {
@@ -552,6 +587,8 @@ func ValidateSourceInstance(ctx context.Context, cfg *config.Config, app *nais_i
 
 	notifyDatabaseConnectionChanges(cfg, app, mgr)
 
+	notifyMigrationIncompatibleFeatures(app, mgr)
+
 	return nil
 }
 
@@ -568,6 +605,19 @@ func notifyDatabaseConnectionChanges(cfg *config.Config, app *nais_io_v1alpha1.A
 				return
 			}
 		}
+	}
+}
+
+func notifyMigrationIncompatibleFeatures(app *nais_io_v1alpha1.Application, mgr *common_main.Manager) {
+	if app.Spec.GCP == nil || len(app.Spec.GCP.SqlInstances) == 0 {
+		return
+	}
+	source := app.Spec.GCP.SqlInstances[0]
+	if source.HighAvailability {
+		mgr.Logger.Warn("source instance has high availability enabled; this will be temporarily disabled on the target during migration and re-enabled after promotion")
+	}
+	if source.PointInTimeRecovery {
+		mgr.Logger.Warn("source instance has point-in-time recovery enabled; this will be temporarily disabled on the target during migration and re-enabled after promotion")
 	}
 }
 
