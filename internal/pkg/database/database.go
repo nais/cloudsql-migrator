@@ -135,6 +135,9 @@ func SetDatabasePassword(ctx context.Context, instance string, userName string, 
 		}
 
 		user.Password = password
+		// Clear DatabaseRoles to avoid "Invalid request to update database roles" error
+		// The API returns roles in GET but rejects them in Update
+		user.DatabaseRoles = nil
 
 		op, err := usersService.Update(gcpProject.Id, instance, user).Name(user.Name).Host(user.Host).Context(ctx).Do()
 		if err != nil {
