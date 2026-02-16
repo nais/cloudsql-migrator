@@ -53,6 +53,9 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		mgr.Logger.Info("temporarily disabling point-in-time recovery on target instance for migration")
 		targetInstance.PointInTimeRecovery = false
 	}
+	if stripped := StripPgAuditFlags(targetInstance); stripped {
+		mgr.Logger.Info("temporarily removing pgaudit flags from target instance for migration; re-run 'nais postgres enable-audit' after migration")
+	}
 
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
@@ -372,6 +375,7 @@ func PrepareTargetInstance(ctx context.Context, target *resolved.Instance, mgr *
 		targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled = ptr.To(false)
 		targetSqlInstance.Spec.Settings.BackupConfiguration.PointInTimeRecoveryEnabled = ptr.To(false)
 		targetSqlInstance.Spec.Settings.AvailabilityType = ptr.To("ZONAL")
+		stripPgAuditDatabaseFlags(targetSqlInstance)
 
 		var authNetwork v1beta1.InstanceAuthorizedNetworks
 		authNetwork, err = createMigratorAuthNetwork()
@@ -619,6 +623,10 @@ func notifyMigrationIncompatibleFeatures(app *nais_io_v1alpha1.Application, mgr 
 	if source.PointInTimeRecovery {
 		mgr.Logger.Warn("source instance has point-in-time recovery enabled; this will be temporarily disabled on the target during migration and re-enabled after promotion")
 	}
+	if hasPgAuditFlags(source.Flags) {
+		mgr.Logger.Warn("source instance has pgaudit flags enabled; these will be temporarily removed from the target during migration")
+		mgr.Logger.Warn("after migration, re-run 'nais postgres enable-audit' to re-enable audit logging")
+	}
 }
 
 func createMigratorAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) {
@@ -710,4 +718,61 @@ func findFlag(flags []v1beta1.InstanceDatabaseFlags, key string) *v1beta1.Instan
 		}
 	}
 	return nil
+}
+
+// pgAuditLoggingFlagNames contains the pgaudit flags that activate logging and
+// are incompatible with DMS migration. When set, pgaudit hooks log DMS internal
+// operations on the target replica, causing "Internal error" at migration job start.
+// We keep cloudsql.enable_pgaudit so the shared library remains loaded and the
+// pgaudit extension can be restored from the source database dump.
+var pgAuditLoggingFlagNames = []string{
+	"pgaudit.log",
+	"pgaudit.log_parameter",
+}
+
+// StripPgAuditFlags removes pgaudit logging flags from the nais CloudSqlInstance spec.
+// The cloudsql.enable_pgaudit flag is kept so the extension can be created on the target.
+// Returns true if any flags were removed.
+func StripPgAuditFlags(instance *nais_io_v1.CloudSqlInstance) bool {
+	stripped := false
+	filtered := make([]nais_io_v1.CloudSqlFlag, 0, len(instance.Flags))
+	for _, f := range instance.Flags {
+		if isPgAuditLoggingFlag(f.Name) {
+			stripped = true
+			continue
+		}
+		filtered = append(filtered, f)
+	}
+	instance.Flags = filtered
+	return stripped
+}
+
+// stripPgAuditDatabaseFlags removes pgaudit logging flags from a CNRM SQLInstance spec (safety net).
+func stripPgAuditDatabaseFlags(sqlInstance *v1beta1.SQLInstance) {
+	filtered := make([]v1beta1.InstanceDatabaseFlags, 0, len(sqlInstance.Spec.Settings.DatabaseFlags))
+	for _, f := range sqlInstance.Spec.Settings.DatabaseFlags {
+		if isPgAuditLoggingFlag(f.Name) {
+			continue
+		}
+		filtered = append(filtered, f)
+	}
+	sqlInstance.Spec.Settings.DatabaseFlags = filtered
+}
+
+func hasPgAuditFlags(flags []nais_io_v1.CloudSqlFlag) bool {
+	for _, f := range flags {
+		if isPgAuditLoggingFlag(f.Name) {
+			return true
+		}
+	}
+	return false
+}
+
+func isPgAuditLoggingFlag(name string) bool {
+	for _, n := range pgAuditLoggingFlagNames {
+		if n == name {
+			return true
+		}
+	}
+	return false
 }
