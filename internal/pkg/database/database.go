@@ -42,14 +42,14 @@ func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *reso
 	return certPaths, nil
 }
 
-// DropPgAuditExtension drops the pgaudit extension from the source databases
-// so that the DMS dump does not contain CREATE EXTENSION pgaudit.
-// This is necessary because the target instance cannot have the pgaudit shared
-// library loaded during migration (it causes DMS "Internal error"), and without
-// the library the CREATE EXTENSION statement in the dump would fail.
+// DropPgAuditExtension removes all pgaudit artifacts from the source databases
+// so that the DMS dump does not contain any pgaudit references.
+// This includes: the extension itself, and per-user pgaudit.log settings
+// (set by 'nais postgres enable-audit') which would cause pg_restore to fail
+// with "role does not exist" on the target.
 func DropPgAuditExtension(ctx context.Context, source *resolved.Instance, databaseName string, certPaths *instance.CertPaths, mgr *common_main.Manager) error {
 	logger := mgr.Logger.With("instance", source.Name)
-	logger.Info("dropping pgaudit extension from source databases before migration")
+	logger.Info("removing pgaudit artifacts from source databases before migration")
 
 	dbInfos := []struct {
 		DatabaseName string
@@ -83,6 +83,20 @@ func DropPgAuditExtension(ctx context.Context, source *resolved.Instance, databa
 			return fmt.Errorf("unable to connect to %s for pgaudit cleanup: %w", dbInfo.DatabaseName, err)
 		}
 		defer dbConn.Close()
+
+		// Reset per-user pgaudit.log setting that 'nais postgres enable-audit' adds.
+		// This is dumped as ALTER ROLE ... IN DATABASE ... SET pgaudit.log which fails
+		// on the target because the source role doesn't exist there.
+		resetSQL := fmt.Sprintf(
+			`ALTER ROLE "%s" IN DATABASE "%s" RESET "pgaudit.log"`,
+			source.AppUsername, dbInfo.DatabaseName,
+		)
+		_, err = dbConn.ExecContext(ctx, resetSQL)
+		if err != nil {
+			logger.Warn("failed to reset pgaudit.log for user, continuing", "database", dbInfo.DatabaseName, "error", err)
+		} else {
+			logger.Info("reset pgaudit.log per-user setting", "database", dbInfo.DatabaseName, "user", source.AppUsername)
+		}
 
 		_, err = dbConn.ExecContext(ctx, "DROP EXTENSION IF EXISTS pgaudit")
 		if err != nil {
