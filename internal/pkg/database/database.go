@@ -21,22 +21,58 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
-func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *resolved.Instance, databaseName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
+func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *resolved.Instance, databaseName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*instance.CertPaths, error) {
 	databasePassword := makePassword(cfg, mgr.Logger)
 	err := SetDatabasePassword(ctx, source.Name, config.PostgresDatabaseUser, databasePassword, gcpProject, mgr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	source.PostgresPassword = databasePassword
 
 	certPaths, err := instance.CreateSslCert(ctx, cfg, source.Name, &source.SslCert, gcpProject, mgr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = installExtension(ctx, mgr, source, databaseName, certPaths)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	return certPaths, nil
+}
+
+// DropPgAuditExtension drops the pgaudit extension from the source databases
+// so that the DMS dump does not contain CREATE EXTENSION pgaudit.
+// This is necessary because the target instance cannot have the pgaudit shared
+// library loaded during migration (it causes DMS "Internal error"), and without
+// the library the CREATE EXTENSION statement in the dump would fail.
+func DropPgAuditExtension(ctx context.Context, source *resolved.Instance, databaseName string, certPaths *instance.CertPaths, mgr *common_main.Manager) error {
+	logger := mgr.Logger.With("instance", source.Name)
+	logger.Info("dropping pgaudit extension from source databases before migration")
+
+	for _, dbName := range []string{config.PostgresDatabaseName, databaseName} {
+		dbConn, err := createConnection(
+			source.PrimaryIp,
+			config.PostgresDatabaseUser,
+			source.PostgresPassword,
+			dbName,
+			certPaths.RootCertPath,
+			certPaths.KeyPath,
+			certPaths.CertPath,
+			logger,
+		)
+		if err != nil {
+			return fmt.Errorf("unable to connect to %s for pgaudit cleanup: %w", dbName, err)
+		}
+		defer dbConn.Close()
+
+		_, err = dbConn.ExecContext(ctx, "DROP EXTENSION IF EXISTS pgaudit")
+		if err != nil {
+			logger.Warn("failed to drop pgaudit extension, continuing", "database", dbName, "error", err)
+		} else {
+			logger.Info("dropped pgaudit extension", "database", dbName)
+		}
 	}
 
 	return nil

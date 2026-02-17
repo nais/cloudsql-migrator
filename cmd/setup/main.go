@@ -123,10 +123,19 @@ func main() {
 	}
 
 	mgr.Logger.Info("Preparing source database", "migrationStep", 12)
-	err = database.PrepareSourceDatabase(ctx, cfg, source, databaseName, gcpProject, mgr)
+	sourceCertPaths, err := database.PrepareSourceDatabase(ctx, cfg, source, databaseName, gcpProject, mgr)
 	if err != nil {
 		mgr.Logger.Error("failed to prepare source database", "error", err)
 		os.Exit(15)
+	}
+
+	if instance.HasPgAuditFlags(app.Spec.GCP.SqlInstances[0].Flags) {
+		mgr.Logger.Info("Dropping pgaudit extension from source", "migrationStep", "12b")
+		err = database.DropPgAuditExtension(ctx, source, databaseName, sourceCertPaths, mgr)
+		if err != nil {
+			mgr.Logger.Error("failed to drop pgaudit extension from source", "error", err)
+			os.Exit(15)
+		}
 	}
 
 	mgr.Logger.Info("Preparing target instance", "migrationStep", 13)

@@ -269,16 +269,15 @@ var _ = Describe("Instance", func() {
 			Expect(target.Flags).To(HaveLen(4))
 		})
 
-		It("should strip pgaudit logging flags but keep cloudsql.enable_pgaudit", func() {
+		It("should strip all pgaudit flags including cloudsql.enable_pgaudit", func() {
 			instanceSettings := &config.InstanceSettings{
 				Name: targetInstanceName,
 			}
 			target := instance.DefineInstance(instanceSettings, app)
 			stripped := instance.StripPgAuditFlags(target)
 			Expect(stripped).To(BeTrue())
-			Expect(target.Flags).To(HaveLen(2))
-			names := []string{target.Flags[0].Name, target.Flags[1].Name}
-			Expect(names).To(ContainElements("cloudsql.enable_pgaudit", "cloudsql.logical_decoding"))
+			Expect(target.Flags).To(HaveLen(1))
+			Expect(target.Flags[0].Name).To(Equal("cloudsql.logical_decoding"))
 		})
 
 		It("should return false when no pgaudit flags present", func() {
