@@ -67,12 +67,13 @@ func DropPgAuditExtension(ctx context.Context, source *resolved.Instance, databa
 		}
 		defer dbConn.Close()
 
+		// Reassign ownership to postgres so we can drop it regardless of original owner
+		_, _ = dbConn.ExecContext(ctx, "ALTER EXTENSION pgaudit OWNER TO postgres")
 		_, err = dbConn.ExecContext(ctx, "DROP EXTENSION IF EXISTS pgaudit")
 		if err != nil {
-			logger.Warn("failed to drop pgaudit extension, continuing", "database", dbName, "error", err)
-		} else {
-			logger.Info("dropped pgaudit extension", "database", dbName)
+			return fmt.Errorf("failed to drop pgaudit extension from %s: %w", dbName, err)
 		}
+		logger.Info("dropped pgaudit extension", "database", dbName)
 	}
 
 	return nil
