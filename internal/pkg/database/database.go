@@ -51,29 +51,44 @@ func DropPgAuditExtension(ctx context.Context, source *resolved.Instance, databa
 	logger := mgr.Logger.With("instance", source.Name)
 	logger.Info("dropping pgaudit extension from source databases before migration")
 
-	for _, dbName := range []string{config.PostgresDatabaseName, databaseName} {
+	dbInfos := []struct {
+		DatabaseName string
+		Username     string
+		Password     string
+	}{
+		{
+			DatabaseName: config.PostgresDatabaseName,
+			Username:     config.PostgresDatabaseUser,
+			Password:     source.PostgresPassword,
+		},
+		{
+			DatabaseName: databaseName,
+			Username:     source.AppUsername,
+			Password:     source.AppPassword,
+		},
+	}
+
+	for _, dbInfo := range dbInfos {
 		dbConn, err := createConnection(
 			source.PrimaryIp,
-			config.PostgresDatabaseUser,
-			source.PostgresPassword,
-			dbName,
+			dbInfo.Username,
+			dbInfo.Password,
+			dbInfo.DatabaseName,
 			certPaths.RootCertPath,
 			certPaths.KeyPath,
 			certPaths.CertPath,
 			logger,
 		)
 		if err != nil {
-			return fmt.Errorf("unable to connect to %s for pgaudit cleanup: %w", dbName, err)
+			return fmt.Errorf("unable to connect to %s for pgaudit cleanup: %w", dbInfo.DatabaseName, err)
 		}
 		defer dbConn.Close()
 
-		// Reassign ownership to postgres so we can drop it regardless of original owner
-		_, _ = dbConn.ExecContext(ctx, "ALTER EXTENSION pgaudit OWNER TO postgres")
 		_, err = dbConn.ExecContext(ctx, "DROP EXTENSION IF EXISTS pgaudit")
 		if err != nil {
-			return fmt.Errorf("failed to drop pgaudit extension from %s: %w", dbName, err)
+			return fmt.Errorf("failed to drop pgaudit extension from %s: %w", dbInfo.DatabaseName, err)
 		}
-		logger.Info("dropped pgaudit extension", "database", dbName)
+		logger.Info("dropped pgaudit extension", "database", dbInfo.DatabaseName)
 	}
 
 	return nil
