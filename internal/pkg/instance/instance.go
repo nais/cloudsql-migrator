@@ -170,6 +170,7 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, mgr *
 
 		setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
 		setFlag(sourceSqlInstance, "cloudsql.logical_decoding")
+		stripPgAuditDatabaseFlags(sourceSqlInstance)
 
 		_, err = mgr.SqlInstanceClient.Update(ctx, sourceSqlInstance)
 		if err != nil {
