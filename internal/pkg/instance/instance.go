@@ -170,7 +170,11 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, mgr *
 
 		setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
 		setFlag(sourceSqlInstance, "cloudsql.logical_decoding")
-		stripPgAuditDatabaseFlags(sourceSqlInstance)
+		// Note: do NOT strip pgaudit flags from source here.
+		// The pgaudit shared library must remain loaded on the source so we can
+		// DROP EXTENSION pgaudit in step 12b. Stripping the flag first would cause
+		// a catch-22: PostgreSQL can't connect because pgaudit extension references
+		// a shared library that is no longer loaded.
 
 		_, err = mgr.SqlInstanceClient.Update(ctx, sourceSqlInstance)
 		if err != nil {
