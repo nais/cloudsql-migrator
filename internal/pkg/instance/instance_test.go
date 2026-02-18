@@ -233,4 +233,61 @@ var _ = Describe("Instance", func() {
 			})
 		})
 	})
+
+	When("source application has pgaudit flags", func() {
+		BeforeEach(func() {
+			app = &nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-app-name",
+					Namespace: "mynamespace",
+				},
+				Spec: nais_io_v1alpha1.ApplicationSpec{
+					Image: "my-docker-image:latest",
+					GCP: &nais_io_v1.GCP{
+						SqlInstances: []nais_io_v1.CloudSqlInstance{
+							{
+								Name: sourceInstanceName,
+								Tier: sourceTier,
+								Flags: []nais_io_v1.CloudSqlFlag{
+									{Name: "cloudsql.enable_pgaudit", Value: "on"},
+									{Name: "pgaudit.log", Value: "write,ddl,role"},
+									{Name: "pgaudit.log_parameter", Value: "on"},
+									{Name: "cloudsql.logical_decoding", Value: "on"},
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		It("should copy flags via DefineInstance", func() {
+			instanceSettings := &config.InstanceSettings{
+				Name: targetInstanceName,
+			}
+			target := instance.DefineInstance(instanceSettings, app)
+			Expect(target.Flags).To(HaveLen(4))
+		})
+
+		It("should strip all pgaudit flags including cloudsql.enable_pgaudit", func() {
+			instanceSettings := &config.InstanceSettings{
+				Name: targetInstanceName,
+			}
+			target := instance.DefineInstance(instanceSettings, app)
+			stripped := instance.StripPgAuditFlags(target)
+			Expect(stripped).To(BeTrue())
+			Expect(target.Flags).To(HaveLen(1))
+			Expect(target.Flags[0].Name).To(Equal("cloudsql.logical_decoding"))
+		})
+
+		It("should return false when no pgaudit flags present", func() {
+			instanceSettings := &config.InstanceSettings{
+				Name: targetInstanceName,
+			}
+			target := instance.DefineInstance(instanceSettings, app)
+			instance.StripPgAuditFlags(target)
+			stripped := instance.StripPgAuditFlags(target)
+			Expect(stripped).To(BeFalse())
+		})
+	})
 })

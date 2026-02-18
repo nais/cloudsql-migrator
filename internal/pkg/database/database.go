@@ -21,22 +21,88 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
-func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *resolved.Instance, databaseName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) error {
+func PrepareSourceDatabase(ctx context.Context, cfg *config.Config, source *resolved.Instance, databaseName string, gcpProject *resolved.GcpProject, mgr *common_main.Manager) (*instance.CertPaths, error) {
 	databasePassword := makePassword(cfg, mgr.Logger)
 	err := SetDatabasePassword(ctx, source.Name, config.PostgresDatabaseUser, databasePassword, gcpProject, mgr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	source.PostgresPassword = databasePassword
 
 	certPaths, err := instance.CreateSslCert(ctx, cfg, source.Name, &source.SslCert, gcpProject, mgr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = installExtension(ctx, mgr, source, databaseName, certPaths)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	return certPaths, nil
+}
+
+// DropPgAuditExtension removes all pgaudit artifacts from the source databases
+// so that the DMS dump does not contain any pgaudit references.
+// This includes: the extension itself, and per-user pgaudit.log settings
+// (set by 'nais postgres enable-audit') which would cause pg_restore to fail
+// with "role does not exist" on the target.
+func DropPgAuditExtension(ctx context.Context, source *resolved.Instance, databaseName string, certPaths *instance.CertPaths, mgr *common_main.Manager) error {
+	logger := mgr.Logger.With("instance", source.Name)
+	logger.Info("removing pgaudit artifacts from source databases before migration")
+
+	dbInfos := []struct {
+		DatabaseName string
+		Username     string
+		Password     string
+	}{
+		{
+			DatabaseName: config.PostgresDatabaseName,
+			Username:     config.PostgresDatabaseUser,
+			Password:     source.PostgresPassword,
+		},
+		{
+			DatabaseName: databaseName,
+			Username:     source.AppUsername,
+			Password:     source.AppPassword,
+		},
+	}
+
+	for _, dbInfo := range dbInfos {
+		dbConn, err := createConnection(
+			source.PrimaryIp,
+			dbInfo.Username,
+			dbInfo.Password,
+			dbInfo.DatabaseName,
+			certPaths.RootCertPath,
+			certPaths.KeyPath,
+			certPaths.CertPath,
+			logger,
+		)
+		if err != nil {
+			return fmt.Errorf("unable to connect to %s for pgaudit cleanup: %w", dbInfo.DatabaseName, err)
+		}
+		defer dbConn.Close()
+
+		// Reset per-user pgaudit.log setting that 'nais postgres enable-audit' adds.
+		// This is dumped as ALTER ROLE ... IN DATABASE ... SET pgaudit.log which fails
+		// on the target because the source role doesn't exist there.
+		resetSQL := fmt.Sprintf(
+			`ALTER ROLE "%s" IN DATABASE "%s" RESET "pgaudit.log"`,
+			source.AppUsername, dbInfo.DatabaseName,
+		)
+		_, err = dbConn.ExecContext(ctx, resetSQL)
+		if err != nil {
+			logger.Warn("failed to reset pgaudit.log for user, continuing", "database", dbInfo.DatabaseName, "error", err)
+		} else {
+			logger.Info("reset pgaudit.log per-user setting", "database", dbInfo.DatabaseName, "user", source.AppUsername)
+		}
+
+		_, err = dbConn.ExecContext(ctx, "DROP EXTENSION IF EXISTS pgaudit")
+		if err != nil {
+			return fmt.Errorf("failed to drop pgaudit extension from %s: %w", dbInfo.DatabaseName, err)
+		}
+		logger.Info("dropped pgaudit extension", "database", dbInfo.DatabaseName)
 	}
 
 	return nil

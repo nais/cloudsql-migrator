@@ -53,6 +53,9 @@ func CreateInstance(ctx context.Context, cfg *config.Config, source *resolved.In
 		mgr.Logger.Info("temporarily disabling point-in-time recovery on target instance for migration")
 		targetInstance.PointInTimeRecovery = false
 	}
+	if stripped := StripPgAuditFlags(targetInstance); stripped {
+		mgr.Logger.Info("removing all pgaudit flags from target instance for migration; re-run 'nais postgres enable-audit' after migration")
+	}
 
 	helperName, err := common_main.HelperName(cfg.ApplicationName)
 	if err != nil {
@@ -167,6 +170,11 @@ func PrepareSourceInstance(ctx context.Context, source *resolved.Instance, mgr *
 
 		setFlag(sourceSqlInstance, "cloudsql.enable_pglogical")
 		setFlag(sourceSqlInstance, "cloudsql.logical_decoding")
+		// Note: do NOT strip pgaudit flags from source here.
+		// The pgaudit shared library must remain loaded on the source so we can
+		// DROP EXTENSION pgaudit in step 12b. Stripping the flag first would cause
+		// a catch-22: PostgreSQL can't connect because pgaudit extension references
+		// a shared library that is no longer loaded.
 
 		_, err = mgr.SqlInstanceClient.Update(ctx, sourceSqlInstance)
 		if err != nil {
@@ -372,6 +380,7 @@ func PrepareTargetInstance(ctx context.Context, target *resolved.Instance, mgr *
 		targetSqlInstance.Spec.Settings.BackupConfiguration.Enabled = ptr.To(false)
 		targetSqlInstance.Spec.Settings.BackupConfiguration.PointInTimeRecoveryEnabled = ptr.To(false)
 		targetSqlInstance.Spec.Settings.AvailabilityType = ptr.To("ZONAL")
+		stripPgAuditDatabaseFlags(targetSqlInstance)
 
 		var authNetwork v1beta1.InstanceAuthorizedNetworks
 		authNetwork, err = createMigratorAuthNetwork()
@@ -619,6 +628,10 @@ func notifyMigrationIncompatibleFeatures(app *nais_io_v1alpha1.Application, mgr 
 	if source.PointInTimeRecovery {
 		mgr.Logger.Warn("source instance has point-in-time recovery enabled; this will be temporarily disabled on the target during migration and re-enabled after promotion")
 	}
+	if HasPgAuditFlags(source.Flags) {
+		mgr.Logger.Warn("source instance has pgaudit flags enabled; these will be removed from the target and the pgaudit extension will be dropped from the source during migration")
+		mgr.Logger.Warn("after migration, re-run 'nais postgres enable-audit' to re-enable audit logging")
+	}
 }
 
 func createMigratorAuthNetwork() (v1beta1.InstanceAuthorizedNetworks, error) {
@@ -710,4 +723,50 @@ func findFlag(flags []v1beta1.InstanceDatabaseFlags, key string) *v1beta1.Instan
 		}
 	}
 	return nil
+}
+
+// StripPgAuditFlags removes all pgaudit-related flags from the nais CloudSqlInstance spec.
+// All pgaudit flags must be removed because even loading the shared library
+// (cloudsql.enable_pgaudit=on) interferes with DMS replication.
+// The pgaudit extension must also be dropped from the source database separately
+// to prevent the DMS dump from containing CREATE EXTENSION pgaudit.
+// Returns true if any flags were removed.
+func StripPgAuditFlags(instance *nais_io_v1.CloudSqlInstance) bool {
+	stripped := false
+	filtered := make([]nais_io_v1.CloudSqlFlag, 0, len(instance.Flags))
+	for _, f := range instance.Flags {
+		if isPgAuditFlag(f.Name) {
+			stripped = true
+			continue
+		}
+		filtered = append(filtered, f)
+	}
+	instance.Flags = filtered
+	return stripped
+}
+
+// stripPgAuditDatabaseFlags removes all pgaudit flags from a CNRM SQLInstance spec (safety net).
+func stripPgAuditDatabaseFlags(sqlInstance *v1beta1.SQLInstance) {
+	filtered := make([]v1beta1.InstanceDatabaseFlags, 0, len(sqlInstance.Spec.Settings.DatabaseFlags))
+	for _, f := range sqlInstance.Spec.Settings.DatabaseFlags {
+		if isPgAuditFlag(f.Name) {
+			continue
+		}
+		filtered = append(filtered, f)
+	}
+	sqlInstance.Spec.Settings.DatabaseFlags = filtered
+}
+
+// HasPgAuditFlags returns true if any pgaudit-related flags are present.
+func HasPgAuditFlags(flags []nais_io_v1.CloudSqlFlag) bool {
+	for _, f := range flags {
+		if isPgAuditFlag(f.Name) {
+			return true
+		}
+	}
+	return false
+}
+
+func isPgAuditFlag(name string) bool {
+	return name == "cloudsql.enable_pgaudit" || len(name) > 8 && name[:8] == "pgaudit."
 }
