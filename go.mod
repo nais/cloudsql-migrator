@@ -1,6 +1,6 @@
 module github.com/nais/cloudsql-migrator
 
-go 1.25.0
+go 1.26
 
 // These have invalid versions, but aren't actually in use.
 // They are pulled in by github.com/GoogleCloudPlatform/k8s-config-connector
@@ -12,7 +12,7 @@ replace github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp => ./invalid
 require (
 	cloud.google.com/go/clouddms v1.8.8
 	cloud.google.com/go/monitoring v1.24.3
-	github.com/GoogleCloudPlatform/k8s-config-connector v1.146.0
+	github.com/GoogleCloudPlatform/k8s-config-connector v1.147.1
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.1
 	github.com/nais/liberator v0.0.0-20250411064636-3e5a44a59298
