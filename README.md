@@ -135,3 +135,8 @@ It is recommended to set the following environment variables:
 |------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `DEVELOPMENT_MODE_SKIP_BACKUP=true`      | Skip creating backups. These take long to create, and if developing, the backup is probably not needed.                                                                        |
 | `DEVELOPMENT_MODE_UNSAFE_PASSWORD=true`  | During setup/promotion, the password for the `postgres` user is changed. This setting makes the password always be `testpassword`.                                             |
+
+
+## Some code generated with GitHub Copilot
+
+This repository occasionally uses GitHub Copilot to generate code.
