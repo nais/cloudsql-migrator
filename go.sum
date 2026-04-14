@@ -14,6 +14,8 @@ cloud.google.com/go/clouddms v1.9.0 h1:TAzF67eY6r2QIKVF+NnniFl0TE12IB075X+00fJB2
 cloud.google.com/go/clouddms v1.9.0/go.mod h1:O0P8OX8QBK0UFlDJx+Xd32aHi3qltjel4q67YyZPJIg=
 cloud.google.com/go/clouddms v1.10.0 h1:fbXBTIzk58x9KTHEGTBw9v7R2PkdiZjz+iu5h+iJQb0=
 cloud.google.com/go/clouddms v1.10.0/go.mod h1:aMgrOZ+/EKF/PL+h1sDbS+7fAIYV5rTwD+G/apCeHQk=
+cloud.google.com/go/clouddms v1.11.0 h1:OFNGNDRsrAr7pXITuzUbk9h+/oNJi9vQY5mAESaM54U=
+cloud.google.com/go/clouddms v1.11.0/go.mod h1:aMgrOZ+/EKF/PL+h1sDbS+7fAIYV5rTwD+G/apCeHQk=
 cloud.google.com/go/compute/metadata v0.9.0 h1:pDUj4QMoPejqq20dK0Pg2N4yG9zIkYGdBtwLoEkH9Zs=
 cloud.google.com/go/compute/metadata v0.9.0/go.mod h1:E0bWwX5wTnLPedCKqk3pJmVgCBSM6qQI1yTBdEb3C10=
 cloud.google.com/go/iam v1.5.3 h1:+vMINPiDF2ognBJ97ABAYYwRgsaqxPbQDlMnbHMjolc=
