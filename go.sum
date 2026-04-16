@@ -42,6 +42,8 @@ github.com/GoogleCloudPlatform/k8s-config-connector v1.145.0 h1:bk1oNxc4Z2IVFTWQ
 github.com/GoogleCloudPlatform/k8s-config-connector v1.145.0/go.mod h1:cpj0ZxA3WkiSfmZGISXsP1wVeal50OAlM4CunGzTyMU=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.146.0 h1:+KDsnaIflB8EHhcB+vPzGN8B/N7qWgGtji6nw4UIyjk=
 github.com/GoogleCloudPlatform/k8s-config-connector v1.146.0/go.mod h1:cpj0ZxA3WkiSfmZGISXsP1wVeal50OAlM4CunGzTyMU=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.148.0 h1:V2xy9CqLH4HIqo6shsBY6++T8oHMoDL+Pp4NgWfwbks=
+github.com/GoogleCloudPlatform/k8s-config-connector v1.148.0/go.mod h1:L9Do+S1MOOVjINtP5I+DTm8In7fBjpGAEDHJxKJUCBA=
 github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
 github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
