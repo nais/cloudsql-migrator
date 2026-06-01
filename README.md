@@ -38,14 +38,14 @@ make all
 ```
 
 #### Environment variables
-| Variable                 | Description                          | Required |
-|--------------------------|--------------------------------------|----------|
-| APP_NAME                 | Name of the application              | Yes      |
-| NAMESPACE                | Namespace of the application         | Yes      |
-| TARGET_INSTANCE_NAME     | Name of the target sql instance      | Yes      |
-| TARGET_INSTANCE_TIER     | Tier of the target sql instance      | No       |
-| TARGET_INSTANCE_DISKSIZE | Disk size of the target sql instance | No       |
-| TARGET_INSTANCE_TYPE     | Type of the target sql instance      | No       |
+| Variable                  | Description                          | Required |
+|---------------------------|--------------------------------------|----------|
+| APP_NAME                  | Name of the application              | Yes      |
+| NAMESPACE                 | Namespace of the application         | Yes      |
+| TARGET_INSTANCE_NAME      | Name of the target sql instance      | Yes      |
+| TARGET_INSTANCE_TIER      | Tier of the target sql instance      | No       |
+| TARGET_INSTANCE_DISK_SIZE | Disk size of the target sql instance | No       |
+| TARGET_INSTANCE_TYPE      | Type of the target sql instance      | No       |
 
 Setup the migration job and start replicating:
 ```shell
