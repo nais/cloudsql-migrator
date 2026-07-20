@@ -19,7 +19,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
 	github.com/sethvargo/go-envconfig v1.3.1
-	github.com/sethvargo/go-retry v0.3.0
+	github.com/sethvargo/go-retry v0.4.0
 	golang.org/x/sync v0.22.0
 	golang.org/x/vuln v1.6.0
 	google.golang.org/api v0.289.0
