@@ -24,7 +24,7 @@ require (
 	golang.org/x/vuln v1.6.0
 	google.golang.org/api v0.292.0
 	google.golang.org/grpc v1.83.0
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 	honnef.co/go/tools v0.7.0
 	k8s.io/api v0.35.4
 	k8s.io/apimachinery v0.35.4
