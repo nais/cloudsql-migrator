@@ -1,6 +1,6 @@
 module github.com/nais/cloudsql-migrator
 
-go 1.25.8
+go 1.26.0
 
 // These have invalid versions, but aren't actually in use.
 // They are pulled in by github.com/GoogleCloudPlatform/k8s-config-connector
@@ -25,7 +25,7 @@ require (
 	google.golang.org/api v0.296.0
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12
-	honnef.co/go/tools v0.7.0
+	honnef.co/go/tools v0.8.1
 	k8s.io/api v0.35.4
 	k8s.io/apimachinery v0.35.4
 	k8s.io/client-go v0.35.4
