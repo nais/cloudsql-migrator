@@ -346,9 +346,14 @@ func ChangeOwnership(ctx context.Context, mgr *common_main.Manager, target *reso
 	}
 	defer dbConn.Close()
 
-	logger.Info("reassigning ownership from cloudsqlexternalsync to cloudsqlsuperuser", "database", databaseName, "user", target.AppUsername)
-
-	_, err = dbConn.ExecContext(ctx, "REASSIGN OWNED BY cloudsqlexternalsync to cloudsqlsuperuser;")
+	if config.PostgresDatabaseName == databaseName {
+		logger.Info("reassigning ownership from cloudsqlexternalsync to cloudsqlsuperuser", "database", databaseName, "user", config.PostgresDatabaseUser)
+		_, err = dbConn.ExecContext(ctx, "REASSIGN OWNED BY cloudsqlexternalsync to cloudsqlsuperuser;")
+	} else {
+		logger.Info("reassigning ownership from cloudsqlexternalsync to "+target.AppUsername, "database", databaseName, "user", target.AppUsername)
+		_, err = dbConn.ExecContext(ctx, "GRANT cloudsqlexternalsync to \""+target.AppUsername+"\";"+
+			"REASSIGN OWNED BY cloudsqlexternalsync to \""+target.AppUsername+"\";")
+	}
 	if err != nil {
 		return err
 	}
